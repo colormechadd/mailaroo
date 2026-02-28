@@ -1,0 +1,81 @@
+package models
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type User struct {
+	ID           uuid.UUID `db:"id" json:"id"`
+	Username     string    `db:"username" json:"username"`
+	PasswordHash string    `db:"password_hash" json:"-"`
+	IsActive     bool      `db:"is_active" json:"is_active"`
+}
+
+type Mailbox struct {
+	ID     uuid.UUID `db:"id" json:"id"`
+	UserID uuid.UUID `db:"user_id" json:"user_id"`
+	Name   string    `db:"name" json:"name"`
+}
+
+type AddressMapping struct {
+	ID             uuid.UUID `db:"id" json:"id"`
+	AddressPattern string    `db:"address_pattern" json:"address_pattern"`
+	MailboxID      uuid.UUID `db:"mailbox_id" json:"mailbox_id"`
+	Priority       int       `db:"priority" json:"priority"`
+	IsActive       bool      `db:"is_active" json:"is_active"`
+}
+
+type Thread struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	MailboxID uuid.UUID `db:"mailbox_id" json:"mailbox_id"`
+	Subject   string    `db:"subject" json:"subject"`
+}
+
+type Ingestion struct {
+	ID          uuid.UUID `db:"id" json:"id"`
+	MessageID   *string   `db:"message_id" json:"message_id"`
+	FromAddress *string   `db:"from_address" json:"from_address"`
+	ToAddress   *string   `db:"to_address" json:"to_address"`
+	Status      string    `db:"status" json:"status"`
+}
+
+type IngestionStep struct {
+	ID          uuid.UUID       `db:"id" json:"id"`
+	IngestionID uuid.UUID       `db:"ingestion_id" json:"ingestion_id"`
+	StepName    string          `db:"step_name" json:"step_name"`
+	Status      string          `db:"status" json:"status"`
+	Details     json.RawMessage `db:"details" json:"details"`
+	DurationMS  int             `db:"duration_ms" json:"duration_ms"`
+}
+
+type Email struct {
+	ID               uuid.UUID  `db:"id" json:"id"`
+	MailboxID        uuid.UUID  `db:"mailbox_id" json:"mailbox_id"`
+	ThreadID         *uuid.UUID `db:"thread_id" json:"thread_id"`
+	AddressMappingID *uuid.UUID `db:"address_mapping_id" json:"address_mapping_id"`
+	IngestionID      *uuid.UUID `db:"ingestion_id" json:"ingestion_id"`
+	MessageID        string     `db:"message_id" json:"message_id"`
+	InReplyTo        *string    `db:"in_reply_to" json:"in_reply_to"`
+	References       *string    `db:"references" json:"references"`
+	Subject          string     `db:"subject" json:"subject"`
+	FromAddress      string     `db:"from_address" json:"from_address"`
+	ToAddress        string     `db:"to_address" json:"to_address"`
+	ReplyToAddress   *string    `db:"reply_to_address" json:"reply_to_address"`
+	StorageKey       string     `db:"storage_key" json:"storage_key"`
+	Size             int64      `db:"size" json:"size"`
+	ReceiveDatetime  time.Time  `db:"receive_datetime" json:"receive_datetime"`
+	IsRead           bool       `db:"is_read" json:"is_read"`
+	IsStar           bool       `db:"is_star" json:"is_star"`
+}
+
+type EmailAttachment struct {
+	ID          uuid.UUID `db:"id" json:"id"`
+	EmailID     uuid.UUID `db:"email_id" json:"email_id"`
+	Filename    string    `db:"filename" json:"filename"`
+	ContentType string    `db:"content_type" json:"content_type"`
+	Size        int64     `db:"size" json:"size"`
+	StorageKey  string    `db:"storage_key" json:"storage_key"`
+}
