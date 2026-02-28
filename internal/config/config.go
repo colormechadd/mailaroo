@@ -74,6 +74,8 @@ func LoadConfig() (*Config, error) {
 
 	viper.SetEnvPrefix("MAILEROO")
 	viper.AutomaticEnv()
+	// Bind common names to the prefixed env vars
+	viper.BindEnv("DATABASE_URL") 
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	var cfg Config

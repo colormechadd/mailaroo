@@ -171,6 +171,21 @@ CREATE TABLE public."user" (
 
 
 --
+-- Name: webmail_session; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webmail_session (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    user_id uuid NOT NULL,
+    token text NOT NULL,
+    remote_ip text,
+    user_agent text,
+    expires_datetime timestamp with time zone NOT NULL,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: address_mapping address_mapping_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -259,6 +274,22 @@ ALTER TABLE ONLY public."user"
 
 
 --
+-- Name: webmail_session webmail_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webmail_session
+    ADD CONSTRAINT webmail_session_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webmail_session webmail_session_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webmail_session
+    ADD CONSTRAINT webmail_session_token_key UNIQUE (token);
+
+
+--
 -- Name: idx_address_mapping_pattern; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -326,6 +357,13 @@ CREATE INDEX idx_mailbox_block_rule_mailbox_id ON public.mailbox_block_rule USIN
 --
 
 CREATE INDEX idx_thread_mailbox_id ON public.thread USING btree (mailbox_id);
+
+
+--
+-- Name: idx_webmail_session_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_webmail_session_token ON public.webmail_session USING btree (token);
 
 
 --
@@ -409,6 +447,14 @@ ALTER TABLE ONLY public.thread
 
 
 --
+-- Name: webmail_session webmail_session_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webmail_session
+    ADD CONSTRAINT webmail_session_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -423,4 +469,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260228210153'),
     ('20260228213208'),
     ('20260228215437'),
-    ('20260228220017');
+    ('20260228220017'),
+    ('20260228222916');

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -49,4 +50,8 @@ func (db *DB) WithTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error {
 
 	err = fn(tx)
 	return err
+}
+
+func ParseUUID(s string) (uuid.UUID, error) {
+	return uuid.Parse(s)
 }

@@ -20,5 +20,8 @@ go.work
 # Project specific
 maileroo
 data/
+bin/
+tmp/
 .env
 .envrc
+build/
