@@ -17,7 +17,9 @@ type WebDB interface {
 	GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error)
 	GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, limit, offset int) ([]models.Email, error)
 	GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Email, error)
+	GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID) (*models.Email, error)
 	GetAttachmentsByEmailID(ctx context.Context, emailID uuid.UUID) ([]models.EmailAttachment, error)
+	GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID uuid.UUID) (*models.EmailAttachment, error)
 }
 
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
@@ -85,8 +87,35 @@ func (db *DB) GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Emai
 	return &email, err
 }
 
+func (db *DB) GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID) (*models.Email, error) {
+	var email models.Email
+	err := db.GetContext(ctx, &email, `
+		SELECT 
+			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id, 
+			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address, 
+			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star
+		FROM email e
+		JOIN mailbox m ON e.mailbox_id = m.id
+		WHERE e.id = $1 AND m.user_id = $2
+	`, emailID, userID)
+	return &email, err
+}
+
 func (db *DB) GetAttachmentsByEmailID(ctx context.Context, emailID uuid.UUID) ([]models.EmailAttachment, error) {
 	var attachments []models.EmailAttachment
 	err := db.SelectContext(ctx, &attachments, "SELECT id, email_id, filename, content_type, size, storage_key FROM email_attachment WHERE email_id = $1", emailID)
 	return attachments, err
+}
+
+func (db *DB) GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID uuid.UUID) (*models.EmailAttachment, error) {
+	var att models.EmailAttachment
+	err := db.GetContext(ctx, &att, `
+		SELECT 
+			a.id, a.email_id, a.filename, a.content_type, a.size, a.storage_key
+		FROM email_attachment a
+		JOIN email e ON a.email_id = e.id
+		JOIN mailbox m ON e.mailbox_id = m.id
+		WHERE a.id = $1 AND m.user_id = $2
+	`, attachmentID, userID)
+	return &att, err
 }

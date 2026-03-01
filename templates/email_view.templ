@@ -5,7 +5,7 @@ import (
 	"github.com/colormechadd/maileroo/pkg/models"
 )
 
-templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, body string) {
+templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, body string, isHTML bool) {
 	<div class="flex-1 flex flex-col h-full bg-white overflow-hidden animate-in fade-in duration-300">
 		<header class="p-8 border-b border-purple-100 flex flex-col space-y-4">
 			<div class="flex items-center justify-between">
@@ -38,11 +38,16 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 			</div>
 		</header>
 
-		<div class="flex-1 overflow-y-auto p-8 prose prose-purple max-w-none">
-			<!-- Render body (handle potential HTML vs Text later) -->
-			<div class="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed">
-				{ body }
-			</div>
+		<div class="flex-1 overflow-y-auto p-8 max-w-none">
+			if isHTML {
+				<div class="email-body-html">
+					@templ.Raw(body)
+				</div>
+			} else {
+				<div class="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed">
+					{ body }
+				</div>
+			}
 		</div>
 
 		if len(attachments) > 0 {

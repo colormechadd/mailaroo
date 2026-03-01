@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -23,19 +24,26 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/klauspost/compress/zstd"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type Server struct {
 	cfg     config.Config
 	db      db.WebDB
 	storage storage.Storage
+	policy  *bluemonday.Policy
 }
 
 func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage) *Server {
+	// Setup a safe policy for email rendering
+	p := bluemonday.UGCPolicy()
+	p.AllowStyling() // Allow some basic styles for emails
+
 	return &Server{
 		cfg:     cfg,
 		db:      webDB,
 		storage: storage,
+		policy:  p,
 	}
 }
 
@@ -60,27 +68,91 @@ func (s *Server) Routes() chi.Router {
 		r.Get("/", s.handleDashboard)
 		r.Get("/mailbox/{mailboxID}", s.handleMailboxView)
 		r.Get("/email/{emailID}", s.handleEmailView)
+		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
 	})
 
 	return r
+}
+
+...
+
+func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	attIDStr := chi.URLParam(r, "attachmentID")
+	attID, err := uuid.Parse(attIDStr)
+	if err != nil {
+		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+		return
+	}
+
+	att, err := s.db.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
+	if err != nil {
+		slog.Error("failed to fetch attachment for user", "att_id", attID, "user_id", user.ID, "error", err)
+		http.Error(w, "Attachment not found", http.StatusNotFound)
+		return
+	}
+
+	rc, err := s.storage.Get(r.Context(), att.StorageKey)
+	if err != nil {
+		slog.Error("failed to fetch attachment from storage", "key", att.StorageKey, "error", err)
+		http.Error(w, "Failed to load attachment", http.StatusInternalServerError)
+		return
+	}
+	defer rc.Close()
+
+	var bodyReader io.Reader = rc
+	if strings.HasSuffix(att.StorageKey, ".zst") {
+		zr, err := zstd.NewReader(rc)
+		if err != nil {
+			slog.Error("failed to create zstd reader for attachment", "key", att.StorageKey, "error", err)
+		} else {
+			defer zr.Close()
+			bodyReader = zr
+		}
+	} else if strings.HasSuffix(att.StorageKey, ".gz") {
+		gr, err := gzip.NewReader(rc)
+		if err != nil {
+			slog.Error("failed to create gzip reader for attachment", "key", att.StorageKey, "error", err)
+		} else {
+			defer gr.Close()
+			bodyReader = gr
+		}
+	}
+
+	w.Header().Set("Content-Type", att.ContentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", att.Filename))
+	
+	io.Copy(w, bodyReader)
 }
 
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("maileroo_session")
 		if err != nil {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/login")
+				return
+			}
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
 		session, err := s.db.GetWebmailSession(r.Context(), cookie.Value)
 		if err != nil || session.ExpiresDatetime.Before(time.Now()) {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/login")
+				return
+			}
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
 		user, err := s.db.GetUserByID(r.Context(), session.UserID)
 		if err != nil || !user.IsActive {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/login")
+				return
+			}
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -209,6 +281,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
 	emailIDStr := chi.URLParam(r, "emailID")
 	emailID, err := uuid.Parse(emailIDStr)
 	if err != nil {
@@ -216,9 +289,9 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByID(r.Context(), emailID)
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email", "email_id", emailID, "error", err)
+		slog.Error("failed to fetch email for user", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Email not found", http.StatusNotFound)
 		return
 	}
@@ -257,6 +330,7 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 
 	mr, err := mail.CreateReader(bodyReader)
 	var content string
+	var isHTML bool
 	if err == nil {
 		defer mr.Close()
 		for {
@@ -276,10 +350,15 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 				contentType, _, _ = h.ContentType()
 			}
 
-			if contentType == "text/plain" || contentType == "text/html" {
+			if contentType == "text/html" {
+				b, _ := io.ReadAll(p.Body)
+				content = s.policy.Sanitize(string(b))
+				isHTML = true
+				break
+			}
+			if contentType == "text/plain" && content == "" {
 				b, _ := io.ReadAll(p.Body)
 				content = string(b)
-				break
 			}
 		}
 	} else {
@@ -287,7 +366,7 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 		content = string(b)
 	}
 
-	templates.EmailDetail(email, attachments, content).Render(r.Context(), w)
+	templates.EmailDetail(email, attachments, content, isHTML).Render(r.Context(), w)
 }
 
 func generateToken() string {
