@@ -20,6 +20,7 @@ type WebDB interface {
 	GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID) (*models.Email, error)
 	GetAttachmentsByEmailID(ctx context.Context, emailID uuid.UUID) ([]models.EmailAttachment, error)
 	GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID uuid.UUID) (*models.EmailAttachment, error)
+	GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uuid.UUID) ([]models.IngestionStep, error)
 }
 
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
@@ -118,4 +119,18 @@ func (db *DB) GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID
 		WHERE a.id = $1 AND m.user_id = $2
 	`, attachmentID, userID)
 	return &att, err
+}
+
+func (db *DB) GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uuid.UUID) ([]models.IngestionStep, error) {
+	var steps []models.IngestionStep
+	err := db.SelectContext(ctx, &steps, `
+		SELECT 
+			s.id, s.ingestion_id, s.step_name, s.status, s.details, s.duration_ms
+		FROM ingestion_step s
+		JOIN email e ON s.ingestion_id = e.ingestion_id
+		JOIN mailbox m ON e.mailbox_id = m.id
+		WHERE e.id = $1 AND m.user_id = $2
+		ORDER BY s.create_datetime ASC
+	`, emailID, userID)
+	return steps, err
 }

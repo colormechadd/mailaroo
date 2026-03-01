@@ -1,10 +1,12 @@
 package web
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -35,9 +37,8 @@ type Server struct {
 }
 
 func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage) *Server {
-	// Setup a safe policy for email rendering
 	p := bluemonday.UGCPolicy()
-	p.AllowStyling() // Allow some basic styles for emails
+	p.AllowStyling()
 
 	return &Server{
 		cfg:     cfg,
@@ -55,7 +56,6 @@ func (s *Server) Routes() chi.Router {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
 
@@ -68,61 +68,187 @@ func (s *Server) Routes() chi.Router {
 		r.Get("/", s.handleDashboard)
 		r.Get("/mailbox/{mailboxID}", s.handleMailboxView)
 		r.Get("/email/{emailID}", s.handleEmailView)
+		r.Get("/email/{emailID}/headers", s.handleEmailHeaders)
+		r.Get("/email/{emailID}/pipeline", s.handleEmailPipeline)
 		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
 	})
 
 	return r
 }
 
-...
+func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, content templ.Component) {
+	if r.Header.Get("HX-Request") == "true" {
+		content.Render(r.Context(), w)
+		return
+	}
+	templates.Dashboard(user, mailboxes, currentMailboxID, content).Render(r.Context(), w)
+}
 
-func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	attIDStr := chi.URLParam(r, "attachmentID")
-	attID, err := uuid.Parse(attIDStr)
+	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	att, err := s.db.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
-	if err != nil {
-		slog.Error("failed to fetch attachment for user", "att_id", attID, "user_id", user.ID, "error", err)
-		http.Error(w, "Attachment not found", http.StatusNotFound)
+	if len(mailboxes) > 0 {
+		http.Redirect(w, r, "/mailbox/"+mailboxes[0].ID.String(), http.StatusSeeOther)
 		return
 	}
 
-	rc, err := s.storage.Get(r.Context(), att.StorageKey)
+	s.render(w, r, user, mailboxes, uuid.Nil, templates.MailboxContent(mailboxes, uuid.Nil, nil))
+}
+
+func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	mailboxID, _ := uuid.Parse(chi.URLParam(r, "mailboxID"))
+
+	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	emails, _ := s.db.GetEmailsByMailboxID(r.Context(), mailboxID, 50, 0)
+
+	s.render(w, r, user, mailboxes, mailboxID, templates.MailboxContent(mailboxes, mailboxID, emails))
+}
+
+func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, _ := uuid.Parse(chi.URLParam(r, "emailID"))
+
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch attachment from storage", "key", att.StorageKey, "error", err)
-		http.Error(w, "Failed to load attachment", http.StatusInternalServerError)
+		http.Error(w, "Not found", http.StatusNotFound)
 		return
+	}
+
+	attachments, _ := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	
+	content, isHTML := s.fetchEmailBody(r.Context(), email)
+
+	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	s.render(w, r, user, mailboxes, email.MailboxID, templates.EmailDetail(email, attachments, content, isHTML))
+}
+
+func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, _ := uuid.Parse(chi.URLParam(r, "emailID"))
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	
+	headers := s.fetchEmailHeaders(r.Context(), email)
+
+	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	s.render(w, r, user, mailboxes, email.MailboxID, templates.EmailHeaders(email, headers))
+}
+
+func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, _ := uuid.Parse(chi.URLParam(r, "emailID"))
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	steps, err := s.db.GetIngestionStepsByEmailID(r.Context(), emailID, user.ID)
+	if err != nil {
+		slog.Error("failed to fetch ingestion steps", "email_id", emailID, "error", err)
+	}
+
+	for i := range steps {
+		if len(steps[i].Details) > 0 && string(steps[i].Details) != "null" {
+			var pretty bytes.Buffer
+			if err := json.Indent(&pretty, steps[i].Details, "", "  "); err == nil {
+				steps[i].Details = pretty.Bytes()
+			}
+		}
+	}
+
+	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	s.render(w, r, user, mailboxes, email.MailboxID, templates.EmailPipeline(email, steps))
+}
+
+func (s *Server) fetchEmailBody(ctx context.Context, email *models.Email) (string, bool) {
+	rc, err := s.storage.Get(ctx, email.StorageKey)
+	if err != nil {
+		return "Failed to load content", false
 	}
 	defer rc.Close()
 
 	var bodyReader io.Reader = rc
-	if strings.HasSuffix(att.StorageKey, ".zst") {
-		zr, err := zstd.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create zstd reader for attachment", "key", att.StorageKey, "error", err)
-		} else {
+	if strings.HasSuffix(email.StorageKey, ".zst") {
+		zr, _ := zstd.NewReader(rc)
+		if zr != nil {
 			defer zr.Close()
 			bodyReader = zr
 		}
-	} else if strings.HasSuffix(att.StorageKey, ".gz") {
-		gr, err := gzip.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create gzip reader for attachment", "key", att.StorageKey, "error", err)
-		} else {
+	} else if strings.HasSuffix(email.StorageKey, ".gz") {
+		gr, _ := gzip.NewReader(rc)
+		if gr != nil {
 			defer gr.Close()
 			bodyReader = gr
 		}
 	}
 
-	w.Header().Set("Content-Type", att.ContentType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", att.Filename))
-	
-	io.Copy(w, bodyReader)
+	mr, err := mail.CreateReader(bodyReader)
+	if err != nil {
+		b, _ := io.ReadAll(bodyReader)
+		return string(b), false
+	}
+	defer mr.Close()
+
+	var content string
+	var isHTML bool
+	for {
+		p, err := mr.NextPart()
+		if err != nil { break }
+
+		var ct string
+		switch h := p.Header.(type) {
+		case *mail.InlineHeader: ct, _, _ = h.ContentType()
+		case *mail.AttachmentHeader: ct, _, _ = h.ContentType()
+		}
+
+		if ct == "text/html" {
+			b, _ := io.ReadAll(p.Body)
+			content = s.policy.Sanitize(string(b))
+			isHTML = true
+			break
+		}
+		if ct == "text/plain" && content == "" {
+			b, _ := io.ReadAll(p.Body)
+			content = string(b)
+		}
+	}
+	return content, isHTML
+}
+
+func (s *Server) fetchEmailHeaders(ctx context.Context, email *models.Email) string {
+	rc, err := s.storage.Get(ctx, email.StorageKey)
+	if err != nil { return "" }
+	defer rc.Close()
+
+	var bodyReader io.Reader = rc
+	if strings.HasSuffix(email.StorageKey, ".zst") {
+		zr, _ := zstd.NewReader(rc)
+		if zr != nil { defer zr.Close(); bodyReader = zr }
+	} else if strings.HasSuffix(email.StorageKey, ".gz") {
+		gr, _ := gzip.NewReader(rc)
+		if gr != nil { defer gr.Close(); bodyReader = gr }
+	}
+
+	mr, err := mail.CreateReader(bodyReader)
+	if err != nil { return "" }
+	defer mr.Close()
+
+	var sb strings.Builder
+	fields := mr.Header.Fields()
+	for fields.Next() {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", fields.Key(), fields.Value()))
+	}
+	return sb.String()
 }
 
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
@@ -180,11 +306,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	token := generateToken()
 	expires := time.Now().Add(24 * time.Hour)
-	remoteIP := r.RemoteAddr
-	userAgent := r.UserAgent()
-
-	if err := s.db.CreateWebmailSession(r.Context(), user.ID, token, remoteIP, userAgent, expires); err != nil {
-		slog.Error("failed to create webmail session", "error", err)
+	if err := s.db.CreateWebmailSession(r.Context(), user.ID, token, r.RemoteAddr, r.UserAgent(), expires); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -203,9 +325,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("maileroo_session")
 	if err == nil {
-		if err := s.db.ExpireWebmailSession(r.Context(), cookie.Value); err != nil {
-			slog.Error("failed to expire webmail session", "error", err)
-		}
+		s.db.ExpireWebmailSession(r.Context(), cookie.Value)
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -219,154 +339,35 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
+	attID, _ := uuid.Parse(chi.URLParam(r, "attachmentID"))
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	att, err := s.db.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
-		http.Error(w, "Internal error", http.StatusInternalServerError)
+		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	if len(mailboxes) > 0 {
-		http.Redirect(w, r, "/mailbox/"+mailboxes[0].ID.String(), http.StatusSeeOther)
-		return
-	}
-
-	templates.Dashboard(user, mailboxes, uuid.Nil, nil).Render(r.Context(), w)
-}
-
-func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user").(*models.User)
-	mailboxIDStr := chi.URLParam(r, "mailboxID")
-	mailboxID, err := uuid.Parse(mailboxIDStr)
+	rc, err := s.storage.Get(r.Context(), att.StorageKey)
 	if err != nil {
-		http.Error(w, "Invalid mailbox ID", http.StatusBadRequest)
-		return
-	}
-
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
-	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	var found bool
-	for _, mb := range mailboxes {
-		if mb.ID == mailboxID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		http.Error(w, "Mailbox not found", http.StatusNotFound)
-		return
-	}
-
-	emails, err := s.db.GetEmailsByMailboxID(r.Context(), mailboxID, 50, 0)
-	if err != nil {
-		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "error", err)
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	if r.Header.Get("HX-Request") == "true" {
-		templates.MailboxContent(mailboxes, mailboxID, emails).Render(r.Context(), w)
-		return
-	}
-
-	templates.Dashboard(user, mailboxes, mailboxID, emails).Render(r.Context(), w)
-}
-
-func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user").(*models.User)
-	emailIDStr := chi.URLParam(r, "emailID")
-	emailID, err := uuid.Parse(emailIDStr)
-	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
-		return
-	}
-
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
-	if err != nil {
-		slog.Error("failed to fetch email for user", "email_id", emailID, "user_id", user.ID, "error", err)
-		http.Error(w, "Email not found", http.StatusNotFound)
-		return
-	}
-
-	attachments, err := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
-	if err != nil {
-		slog.Warn("failed to fetch attachments", "email_id", emailID, "error", err)
-	}
-
-	rc, err := s.storage.Get(r.Context(), email.StorageKey)
-	if err != nil {
-		slog.Error("failed to fetch email body from storage", "key", email.StorageKey, "error", err)
-		http.Error(w, "Failed to load email content", http.StatusInternalServerError)
+		http.Error(w, "Failed to load", http.StatusInternalServerError)
 		return
 	}
 	defer rc.Close()
 
 	var bodyReader io.Reader = rc
-	if strings.HasSuffix(email.StorageKey, ".zst") {
-		zr, err := zstd.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create zstd reader", "key", email.StorageKey, "error", err)
-		} else {
-			defer zr.Close()
-			bodyReader = zr
-		}
-	} else if strings.HasSuffix(email.StorageKey, ".gz") {
-		gr, err := gzip.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create gzip reader", "key", email.StorageKey, "error", err)
-		} else {
-			defer gr.Close()
-			bodyReader = gr
-		}
+	if strings.HasSuffix(att.StorageKey, ".zst") {
+		zr, _ := zstd.NewReader(rc)
+		if zr != nil { defer zr.Close(); bodyReader = zr }
+	} else if strings.HasSuffix(att.StorageKey, ".gz") {
+		gr, _ := gzip.NewReader(rc)
+		if gr != nil { defer gr.Close(); bodyReader = gr }
 	}
 
-	mr, err := mail.CreateReader(bodyReader)
-	var content string
-	var isHTML bool
-	if err == nil {
-		defer mr.Close()
-		for {
-			p, err := mr.NextPart()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				break
-			}
-
-			var contentType string
-			switch h := p.Header.(type) {
-			case *mail.InlineHeader:
-				contentType, _, _ = h.ContentType()
-			case *mail.AttachmentHeader:
-				contentType, _, _ = h.ContentType()
-			}
-
-			if contentType == "text/html" {
-				b, _ := io.ReadAll(p.Body)
-				content = s.policy.Sanitize(string(b))
-				isHTML = true
-				break
-			}
-			if contentType == "text/plain" && content == "" {
-				b, _ := io.ReadAll(p.Body)
-				content = string(b)
-			}
-		}
-	} else {
-		b, _ := io.ReadAll(bodyReader)
-		content = string(b)
-	}
-
-	templates.EmailDetail(email, attachments, content, isHTML).Render(r.Context(), w)
+	w.Header().Set("Content-Type", att.ContentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", att.Filename))
+	io.Copy(w, bodyReader)
 }
 
 func generateToken() string {

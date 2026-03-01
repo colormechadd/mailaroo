@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 )
 
-templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, emails []models.Email) {
+templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, content templ.Component) {
 	@Layout("Dashboard") {
 		<div class="flex h-screen overflow-hidden">
 			<!-- Sidebar -->
@@ -19,7 +19,7 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 						<a 
 							href={ templ.URL("/mailbox/" + mb.ID.String()) }
 							hx-get={ "/mailbox/" + mb.ID.String() }
-							hx-target="main"
+							hx-target="#main-content"
 							hx-push-url="true"
 							class={ "flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer", 
 								templ.KV("bg-purple-100 text-purple-900", mb.ID == currentMailboxID),
@@ -54,7 +54,7 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 
 			<!-- Main Content Area -->
 			<main class="flex-1 flex flex-col bg-white overflow-hidden" id="main-content">
-				@MailboxContent(mailboxes, currentMailboxID, emails)
+				@content
 			</main>
 		</div>
 	}
@@ -85,6 +85,7 @@ templ MailboxContent(mailboxes []models.Mailbox, currentMailboxID uuid.UUID, ema
 						class={ "hover:bg-teal-50/30 transition-colors cursor-pointer group", templ.KV("bg-purple-50/20", !email.IsRead) }
 						hx-get={ "/email/" + email.ID.String() }
 						hx-target="#main-content"
+						hx-push-url="true"
 						hx-swap="innerHTML transition:true"
 					>
 						<div class="px-8 py-4 flex items-center">
@@ -93,7 +94,7 @@ templ MailboxContent(mailboxes []models.Mailbox, currentMailboxID uuid.UUID, ema
 									<p class={ "text-sm truncate", templ.KV("font-bold text-gray-900", !email.IsRead), templ.KV("text-gray-600", email.IsRead) }>
 										{ email.FromAddress }
 									</p>
-									<p class="text-xs text-gray-400 group-hover:text-gray-500">
+									<p class="text-xs text-gray-400 group-hover:text-gray-500" data-local-time={ email.ReceiveDatetime.Format("2006-01-02T15:04:05Z07:00") } data-format="list">
 										{ email.ReceiveDatetime.Format("Jan 02, 15:04") }
 									</p>
 								</div>

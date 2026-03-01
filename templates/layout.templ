@@ -10,6 +10,46 @@ templ Layout(title string) {
 			<link rel="icon" type="image/png" href="/static/img/favicon.png"/>
 			<link rel="stylesheet" href="/static/css/output.css"/>
 			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+			<script>
+				function formatLocalTimes() {
+					document.querySelectorAll('[data-local-time]').forEach(el => {
+						const date = new Date(el.getAttribute('data-local-time'));
+						const format = el.getAttribute('data-format') || 'short';
+						
+						let options = {
+							hour: 'numeric',
+							minute: '2-digit',
+							hour12: true
+						};
+
+						if (format === 'full') {
+							options = { 
+								weekday: 'long', 
+								year: 'numeric', 
+								month: 'long', 
+								day: 'numeric',
+								hour: 'numeric',
+								minute: '2-digit',
+								hour12: true
+							};
+						} else if (format === 'list') {
+							options = {
+								month: 'short',
+								day: 'numeric',
+								hour: 'numeric',
+								minute: '2-digit',
+								hour12: true
+							};
+						}
+
+						el.textContent = new Intl.DateTimeFormat('default', options).format(date);
+						el.removeAttribute('data-local-time'); // Prevent re-processing
+					});
+				}
+
+				document.addEventListener('DOMContentLoaded', formatLocalTimes);
+				document.addEventListener('htmx:afterSettle', formatLocalTimes);
+			</script>
 		</head>
 		<body class="h-full bg-purple-50 text-gray-900 font-sans antialiased">
 			{ children... }
