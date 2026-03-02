@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/colormechadd/maileroo/pkg/models"
@@ -15,12 +16,16 @@ type WebDB interface {
 	ExpireWebmailSession(ctx context.Context, token string) error
 	GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error)
-	GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, limit, offset int) ([]models.Email, error)
+	GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, filter string, limit, offset int) ([]models.Email, error)
 	GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Email, error)
 	GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID) (*models.Email, error)
 	GetAttachmentsByEmailID(ctx context.Context, emailID uuid.UUID) ([]models.EmailAttachment, error)
 	GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID uuid.UUID) (*models.EmailAttachment, error)
 	GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uuid.UUID) ([]models.IngestionStep, error)
+	
+	MarkEmailRead(ctx context.Context, emailID, userID uuid.UUID, read bool) error
+	MarkEmailStarred(ctx context.Context, emailID, userID uuid.UUID, starred bool) error
+	MarkEmailDeleted(ctx context.Context, emailID, userID uuid.UUID, deleted bool) error
 }
 
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
@@ -60,18 +65,33 @@ func (db *DB) GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]mod
 	return mailboxes, err
 }
 
-func (db *DB) GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, limit, offset int) ([]models.Email, error) {
+func (db *DB) GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, filter string, limit, offset int) ([]models.Email, error) {
 	var emails []models.Email
-	err := db.SelectContext(ctx, &emails, `
+	whereClause := "mailbox_id = $1 AND is_deleted = FALSE"
+	
+	switch filter {
+	case "unread":
+		whereClause = "mailbox_id = $1 AND is_read = FALSE AND is_deleted = FALSE"
+	case "read":
+		whereClause = "mailbox_id = $1 AND is_read = TRUE AND is_deleted = FALSE"
+	case "starred":
+		whereClause = "mailbox_id = $1 AND is_star = TRUE AND is_deleted = FALSE"
+	case "deleted":
+		whereClause = "mailbox_id = $1 AND is_deleted = TRUE"
+	}
+
+	query := fmt.Sprintf(`
 		SELECT 
 			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
 			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, is_deleted
 		FROM email 
-		WHERE mailbox_id = $1 
+		WHERE %s
 		ORDER BY receive_datetime DESC 
 		LIMIT $2 OFFSET $3
-	`, mailboxID, limit, offset)
+	`, whereClause)
+
+	err := db.SelectContext(ctx, &emails, query, mailboxID, limit, offset)
 	return emails, err
 }
 
@@ -81,7 +101,7 @@ func (db *DB) GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Emai
 		SELECT 
 			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
 			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, is_deleted
 		FROM email 
 		WHERE id = $1
 	`, emailID)
@@ -94,7 +114,7 @@ func (db *DB) GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID
 		SELECT 
 			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id, 
 			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address, 
-			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star
+			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.is_deleted
 		FROM email e
 		JOIN mailbox m ON e.mailbox_id = m.id
 		WHERE e.id = $1 AND m.user_id = $2
@@ -133,4 +153,44 @@ func (db *DB) GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uu
 		ORDER BY s.create_datetime ASC
 	`, emailID, userID)
 	return steps, err
+}
+
+func (db *DB) MarkEmailRead(ctx context.Context, emailID, userID uuid.UUID, read bool) error {
+	var readTime *time.Time
+	if read {
+		now := time.Now()
+		readTime = &now
+	}
+	_, err := db.ExecContext(ctx, `
+		UPDATE email e
+		SET is_read = $1, read_datetime = $2
+		FROM mailbox m
+		WHERE e.mailbox_id = m.id AND e.id = $3 AND m.user_id = $4
+	`, read, readTime, emailID, userID)
+	return err
+}
+
+func (db *DB) MarkEmailStarred(ctx context.Context, emailID, userID uuid.UUID, starred bool) error {
+	var starTime *time.Time
+	if starred {
+		now := time.Now()
+		starTime = &now
+	}
+	_, err := db.ExecContext(ctx, `
+		UPDATE email e
+		SET is_star = $1, star_datetime = $2
+		FROM mailbox m
+		WHERE e.mailbox_id = m.id AND e.id = $3 AND m.user_id = $4
+	`, starred, starTime, emailID, userID)
+	return err
+}
+
+func (db *DB) MarkEmailDeleted(ctx context.Context, emailID, userID uuid.UUID, deleted bool) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE email e
+		SET is_deleted = $1
+		FROM mailbox m
+		WHERE e.mailbox_id = m.id AND e.id = $2 AND m.user_id = $3
+	`, deleted, emailID, userID)
+	return err
 }

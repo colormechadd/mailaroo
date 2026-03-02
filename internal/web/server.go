@@ -70,24 +70,27 @@ func (s *Server) Routes() chi.Router {
 		r.Get("/email/{emailID}", s.handleEmailView)
 		r.Get("/email/{emailID}/headers", s.handleEmailHeaders)
 		r.Get("/email/{emailID}/pipeline", s.handleEmailPipeline)
+		r.Post("/email/{emailID}/star", s.handleEmailStar)
+		r.Post("/email/{emailID}/delete", s.handleEmailDelete)
 		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
 	})
 
 	return r
 }
 
-func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, content templ.Component) {
+func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, content templ.Component) {
 	if r.Header.Get("HX-Request") == "true" {
 		content.Render(r.Context(), w)
 		return
 	}
-	templates.Dashboard(user, mailboxes, currentMailboxID, content).Render(r.Context(), w)
+	templates.Dashboard(user, mailboxes, currentMailboxID, filter, content).Render(r.Context(), w)
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
+		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -97,57 +100,170 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, uuid.Nil, templates.MailboxContent(mailboxes, uuid.Nil, nil))
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", templates.MailboxContent(uuid.Nil, "all", nil))
 }
 
 func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	mailboxID, _ := uuid.Parse(chi.URLParam(r, "mailboxID"))
+	mailboxID, err := uuid.Parse(chi.URLParam(r, "mailboxID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
-	emails, _ := s.db.GetEmailsByMailboxID(r.Context(), mailboxID, 50, 0)
+	filter := r.URL.Query().Get("filter")
+	if filter == "" {
+		filter = "all"
+	}
 
-	s.render(w, r, user, mailboxes, mailboxID, templates.MailboxContent(mailboxes, mailboxID, emails))
+	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	emails, err := s.db.GetEmailsByMailboxID(r.Context(), mailboxID, filter, 50, 0)
+	if err != nil {
+		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	s.render(w, r, user, mailboxes, mailboxID, filter, templates.MailboxContent(mailboxID, filter, emails))
 }
 
 func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	emailID, _ := uuid.Parse(chi.URLParam(r, "emailID"))
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
 
 	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
+		slog.Error("failed to fetch email", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	attachments, _ := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
-	
+	if !email.IsRead {
+		if err := s.db.MarkEmailRead(r.Context(), emailID, user.ID, true); err != nil {
+			slog.Error("failed to mark email read", "email_id", emailID, "error", err)
+		}
+		email.IsRead = true
+	}
+
+	attachments, err := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	if err != nil {
+		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
+	}
+
 	content, isHTML := s.fetchEmailBody(r.Context(), email)
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, templates.EmailDetail(email, attachments, content, isHTML))
+	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+	}
+
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", templates.EmailDetail(email, attachments, content, isHTML))
+}
+
+func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	if err != nil {
+		slog.Error("failed to fetch email for star", "email_id", emailID, "user_id", user.ID, "error", err)
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	starred := !email.IsStar
+	if err := s.db.MarkEmailStarred(r.Context(), emailID, user.ID, starred); err != nil {
+		slog.Error("failed to toggle star", "email_id", emailID, "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	attachments, _ := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	content, isHTML := s.fetchEmailBody(r.Context(), email)
+	email.IsStar = starred
+	
+	// Just render the detail view fragment
+	templates.EmailDetail(email, attachments, content, isHTML).Render(r.Context(), w)
+}
+
+func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	if err != nil {
+		slog.Error("failed to fetch email for delete", "email_id", emailID, "error", err)
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	if err := s.db.MarkEmailDeleted(r.Context(), emailID, user.ID, !email.IsDeleted); err != nil {
+		slog.Error("failed to toggle delete", "email_id", emailID, "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/mailbox/"+email.MailboxID.String())
+		return
+	}
+	http.Redirect(w, r, "/mailbox/"+email.MailboxID.String(), http.StatusSeeOther)
 }
 
 func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	emailID, _ := uuid.Parse(chi.URLParam(r, "emailID"))
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
 	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
+		slog.Error("failed to fetch email for headers", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 	
 	headers := s.fetchEmailHeaders(r.Context(), email)
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, templates.EmailHeaders(email, headers))
+	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+	}
+
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", templates.EmailHeaders(email, headers))
 }
 
 func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	emailID, _ := uuid.Parse(chi.URLParam(r, "emailID"))
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
 	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
+		slog.Error("failed to fetch email for pipeline", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -166,27 +282,36 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, templates.EmailPipeline(email, steps))
+	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+	}
+
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", templates.EmailPipeline(email, steps))
 }
 
 func (s *Server) fetchEmailBody(ctx context.Context, email *models.Email) (string, bool) {
 	rc, err := s.storage.Get(ctx, email.StorageKey)
 	if err != nil {
+		slog.Error("failed to fetch body from storage", "key", email.StorageKey, "error", err)
 		return "Failed to load content", false
 	}
 	defer rc.Close()
 
 	var bodyReader io.Reader = rc
 	if strings.HasSuffix(email.StorageKey, ".zst") {
-		zr, _ := zstd.NewReader(rc)
-		if zr != nil {
+		zr, err := zstd.NewReader(rc)
+		if err != nil {
+			slog.Error("failed to create zstd reader", "key", email.StorageKey, "error", err)
+		} else {
 			defer zr.Close()
 			bodyReader = zr
 		}
 	} else if strings.HasSuffix(email.StorageKey, ".gz") {
-		gr, _ := gzip.NewReader(rc)
-		if gr != nil {
+		gr, err := gzip.NewReader(rc)
+		if err != nil {
+			slog.Error("failed to create gzip reader", "key", email.StorageKey, "error", err)
+		} else {
 			defer gr.Close()
 			bodyReader = gr
 		}
@@ -194,6 +319,7 @@ func (s *Server) fetchEmailBody(ctx context.Context, email *models.Email) (strin
 
 	mr, err := mail.CreateReader(bodyReader)
 	if err != nil {
+		slog.Error("failed to create mail reader", "key", email.StorageKey, "error", err)
 		b, _ := io.ReadAll(bodyReader)
 		return string(b), false
 	}
@@ -227,7 +353,10 @@ func (s *Server) fetchEmailBody(ctx context.Context, email *models.Email) (strin
 
 func (s *Server) fetchEmailHeaders(ctx context.Context, email *models.Email) string {
 	rc, err := s.storage.Get(ctx, email.StorageKey)
-	if err != nil { return "" }
+	if err != nil { 
+		slog.Error("failed to fetch body for headers", "key", email.StorageKey, "error", err)
+		return "" 
+	}
 	defer rc.Close()
 
 	var bodyReader io.Reader = rc
@@ -265,6 +394,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 
 		session, err := s.db.GetWebmailSession(r.Context(), cookie.Value)
 		if err != nil || session.ExpiresDatetime.Before(time.Now()) {
+			slog.Warn("invalid or expired session", "error", err)
 			if r.Header.Get("HX-Request") == "true" {
 				w.Header().Set("HX-Redirect", "/login")
 				return
@@ -275,6 +405,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 
 		user, err := s.db.GetUserByID(r.Context(), session.UserID)
 		if err != nil || !user.IsActive {
+			slog.Warn("user not found or inactive", "user_id", session.UserID, "error", err)
 			if r.Header.Get("HX-Request") == "true" {
 				w.Header().Set("HX-Redirect", "/login")
 				return
@@ -294,12 +425,14 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.db.GetUserByUsername(r.Context(), username)
 	if err != nil || !user.IsActive {
+		slog.Warn("login failed: user not found or inactive", "username", username)
 		templates.LoginPage("Invalid credentials").Render(r.Context(), w)
 		return
 	}
 
 	match, err := auth.ComparePassword(password, user.PasswordHash)
 	if err != nil || !match {
+		slog.Warn("login failed: incorrect password", "username", username)
 		templates.LoginPage("Invalid credentials").Render(r.Context(), w)
 		return
 	}
@@ -307,6 +440,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
 	expires := time.Now().Add(24 * time.Hour)
 	if err := s.db.CreateWebmailSession(r.Context(), user.ID, token, r.RemoteAddr, r.UserAgent(), expires); err != nil {
+		slog.Error("failed to create session", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -341,16 +475,22 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	attID, _ := uuid.Parse(chi.URLParam(r, "attachmentID"))
+	attID, err := uuid.Parse(chi.URLParam(r, "attachmentID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
 
 	att, err := s.db.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
 	if err != nil {
+		slog.Error("attachment not found", "att_id", attID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	rc, err := s.storage.Get(r.Context(), att.StorageKey)
 	if err != nil {
+		slog.Error("failed to fetch attachment", "key", att.StorageKey, "error", err)
 		http.Error(w, "Failed to load", http.StatusInternalServerError)
 		return
 	}
@@ -358,11 +498,21 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 
 	var bodyReader io.Reader = rc
 	if strings.HasSuffix(att.StorageKey, ".zst") {
-		zr, _ := zstd.NewReader(rc)
-		if zr != nil { defer zr.Close(); bodyReader = zr }
+		zr, err := zstd.NewReader(rc)
+		if err != nil {
+			slog.Error("failed to create zstd reader for attachment", "key", att.StorageKey, "error", err)
+		} else {
+			defer zr.Close()
+			bodyReader = zr
+		}
 	} else if strings.HasSuffix(att.StorageKey, ".gz") {
-		gr, _ := gzip.NewReader(rc)
-		if gr != nil { defer gr.Close(); bodyReader = gr }
+		gr, err := gzip.NewReader(rc)
+		if err != nil {
+			slog.Error("failed to create gzip reader for attachment", "key", att.StorageKey, "error", err)
+		} else {
+			defer gr.Close()
+			bodyReader = gr
+		}
 	}
 
 	w.Header().Set("Content-Type", att.ContentType)

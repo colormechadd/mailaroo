@@ -57,7 +57,10 @@ CREATE TABLE public.email (
     ingestion_id uuid,
     thread_id uuid,
     in_reply_to text,
-    "references" text
+    "references" text,
+    is_deleted boolean DEFAULT false,
+    read_datetime timestamp with time zone,
+    star_datetime timestamp with time zone
 );
 
 
@@ -311,6 +314,27 @@ CREATE INDEX idx_email_ingestion_id ON public.email USING btree (ingestion_id);
 
 
 --
+-- Name: idx_email_is_deleted; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_is_deleted ON public.email USING btree (is_deleted);
+
+
+--
+-- Name: idx_email_is_read; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_is_read ON public.email USING btree (is_read);
+
+
+--
+-- Name: idx_email_is_star; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_is_star ON public.email USING btree (is_star);
+
+
+--
 -- Name: idx_email_mailbox_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -470,4 +494,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260228213208'),
     ('20260228215437'),
     ('20260228220017'),
-    ('20260228222916');
+    ('20260228222916'),
+    ('20260301174808');

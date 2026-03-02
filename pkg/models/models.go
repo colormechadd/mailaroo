@@ -78,6 +78,7 @@ type Email struct {
 	ReceiveDatetime  time.Time  `db:"receive_datetime" json:"receive_datetime"`
 	IsRead           bool       `db:"is_read" json:"is_read"`
 	IsStar           bool       `db:"is_star" json:"is_star"`
+	IsDeleted        bool       `db:"is_deleted" json:"is_deleted"`
 }
 
 type EmailAttachment struct {
