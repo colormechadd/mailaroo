@@ -34,9 +34,10 @@ type Server struct {
 	db      db.WebDB
 	storage storage.Storage
 	policy  *bluemonday.Policy
+	hub     *Hub
 }
 
-func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage) *Server {
+func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage, hub *Hub) *Server {
 	p := bluemonday.UGCPolicy()
 	p.AllowStyling()
 
@@ -45,6 +46,7 @@ func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage) *Serv
 		db:      webDB,
 		storage: storage,
 		policy:  p,
+		hub:     hub,
 	}
 }
 
@@ -66,6 +68,7 @@ func (s *Server) Routes() chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(s.AuthMiddleware)
 		r.Get("/", s.handleDashboard)
+		r.Get("/events", s.handleEvents)
 		r.Get("/mailbox/{mailboxID}", s.handleMailboxView)
 		r.Get("/email/{emailID}", s.handleEmailView)
 		r.Get("/email/{emailID}/headers", s.handleEmailHeaders)
@@ -76,6 +79,44 @@ func (s *Server) Routes() chi.Router {
 	})
 
 	return r
+}
+
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	events := s.hub.Subscribe(user.ID)
+	defer s.hub.Unsubscribe(user.ID, events)
+
+	fmt.Fprintf(w, ": connected\n\n")
+	flusher.Flush()
+
+	for {
+		select {
+		case event := <-events:
+			data, _ := json.Marshal(map[string]string{
+				"type":       event.Type,
+				"mailbox_id": event.MailboxID.String(),
+			})
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, string(data))
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		case <-time.After(30 * time.Second):
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
+		}
+	}
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, content templ.Component) {
@@ -165,6 +206,8 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
 
 	s.render(w, r, user, mailboxes, email.MailboxID, "all", templates.EmailDetail(email, attachments, content, isHTML))
@@ -192,11 +235,14 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	attachments, _ := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	attachments, err := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	if err != nil {
+		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
+	}
+
 	content, isHTML := s.fetchEmailBody(r.Context(), email)
 	email.IsStar = starred
 	
-	// Just render the detail view fragment
 	templates.EmailDetail(email, attachments, content, isHTML).Render(r.Context(), w)
 }
 
@@ -210,7 +256,7 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 	
 	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for delete", "email_id", emailID, "error", err)
+		slog.Error("failed to fetch email for delete", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -361,11 +407,17 @@ func (s *Server) fetchEmailHeaders(ctx context.Context, email *models.Email) str
 
 	var bodyReader io.Reader = rc
 	if strings.HasSuffix(email.StorageKey, ".zst") {
-		zr, _ := zstd.NewReader(rc)
-		if zr != nil { defer zr.Close(); bodyReader = zr }
+		zr, err := zstd.NewReader(rc)
+		if err == nil {
+			defer zr.Close()
+			bodyReader = zr
+		}
 	} else if strings.HasSuffix(email.StorageKey, ".gz") {
-		gr, _ := gzip.NewReader(rc)
-		if gr != nil { defer gr.Close(); bodyReader = gr }
+		gr, err := gzip.NewReader(rc)
+		if err == nil {
+			defer gr.Close()
+			bodyReader = gr
+		}
 	}
 
 	mr, err := mail.CreateReader(bodyReader)

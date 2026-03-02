@@ -25,23 +25,35 @@ const (
 	StatusNone    StepStatus = "none"
 )
 
+type Event struct {
+	UserID    uuid.UUID
+	MailboxID uuid.UUID
+	Type      string
+}
+
+type Broadcaster interface {
+	Broadcast(event Event)
+}
+
 type Step func(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error)
 
 type Pipeline struct {
 	cfg     *config.Config
 	db      db.PipelineDB
 	storage storage.Storage
+	hub     Broadcaster
 	steps   []struct {
 		name string
 		fn   Step
 	}
 }
 
-func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage) *Pipeline {
+func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, hub Broadcaster) *Pipeline {
 	p := &Pipeline{
 		cfg:     cfg,
 		db:      db,
 		storage: storage,
+		hub:     hub,
 	}
 
 	// Explicitly define the pipeline order
@@ -53,6 +65,7 @@ func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage) 
 		{"spam", ValidateRBL},
 		{"block", CheckBlockingRules},
 		{"deliver", Deliver},
+		{"notify", Notify},
 	}
 
 	return p
@@ -64,6 +77,7 @@ type IngestionContext struct {
 	FromAddress      string
 	ToAddresses      []string
 	RawMessage       []byte
+	UserID           uuid.UUID
 	TargetMailboxID  uuid.UUID
 	AddressMappingID uuid.UUID
 	StorageKey       string

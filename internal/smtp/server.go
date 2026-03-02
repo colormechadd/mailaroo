@@ -18,6 +18,7 @@ import (
 // RecipientInfo stores mapping details for a recipient
 type RecipientInfo struct {
 	Address   string
+	UserID    uuid.UUID
 	MailboxID uuid.UUID
 	MappingID uuid.UUID
 }
@@ -70,6 +71,7 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 	slog.Info("recipient accepted", "to", to, "mailbox_id", mb.ID)
 	s.to = append(s.to, RecipientInfo{
 		Address:   to,
+		UserID:    mb.UserID,
 		MailboxID: mb.ID,
 		MappingID: mappingID,
 	})
@@ -91,6 +93,7 @@ func (s *Session) Data(r io.Reader) error {
 			FromAddress:      s.from,
 			ToAddresses:      []string{rcpt.Address},
 			RawMessage:       data,
+			UserID:           rcpt.UserID,
 			TargetMailboxID:  rcpt.MailboxID,
 			AddressMappingID: rcpt.MappingID,
 		}
@@ -145,9 +148,6 @@ func StartServers(cfg config.SMTPConfig, mailDB db.MailDB, p *pipeline.Pipeline)
 		s.MaxRecipients = cfg.MaxRecipients
 		s.AllowInsecureAuth = true
 		s.TLSConfig = tlsConfig
-
-		// If port is 465, typically it's implicit TLS, but go-smtp handles it via ListenAndServeTLS
-		// For now we attach the config to all, and EHLO will advertise STARTTLS if config is set.
 
 		servers = append(servers, s)
 	}
