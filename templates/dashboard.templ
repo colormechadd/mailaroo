@@ -3,7 +3,62 @@ package templates
 import (
 	"github.com/colormechadd/maileroo/pkg/models"
 	"github.com/google/uuid"
+	"sort"
+	"strings"
 )
+
+func sortMailboxes(mbs []models.Mailbox) []models.Mailbox {
+	sorted := make([]models.Mailbox, len(mbs))
+	copy(sorted, mbs)
+
+	priority := map[string]int{
+		"inbox": 1,
+		"sent":  2,
+		"trash": 3,
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		nameI := strings.ToLower(sorted[i].Name)
+		nameJ := strings.ToLower(sorted[j].Name)
+
+		pI, okI := priority[nameI]
+		pJ, okJ := priority[nameJ]
+
+		if okI && okJ {
+			return pI < pJ
+		}
+		if okI {
+			return true
+		}
+		if okJ {
+			return false
+		}
+		return nameI < nameJ
+	})
+
+	return sorted
+}
+
+templ MailboxIcon(name string) {
+	{{ lowerName := strings.ToLower(name) }}
+	if lowerName == "inbox" {
+		<svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+		</svg>
+	} else if lowerName == "sent" {
+		<svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+		</svg>
+	} else if lowerName == "trash" {
+		<svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+		</svg>
+	} else {
+		<svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+		</svg>
+	}
+}
 
 templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, content templ.Component) {
 	@Layout("Dashboard") {
@@ -20,10 +75,22 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 			<aside class="w-64 flex-shrink-0 bg-white border-r border-purple-100 flex flex-col">
 				<div class="p-6">
 					<img class="h-10 w-auto mb-4" src="/static/img/maileroo.png" alt="Maileroo Logo"/>
-					<h1 class="text-xl font-bold text-purple-900">Maileroo</h1>
+					<h1 class="text-xl font-bold text-purple-900 mb-6">Maileroo</h1>
+					
+					<button 
+						hx-get="/compose"
+						hx-target="#main-content"
+						hx-push-url="true"
+						class="w-full flex items-center justify-center px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-lg shadow-purple-200 transition-all cursor-pointer group"
+					>
+						<svg class="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+						</svg>
+						Compose
+					</button>
 				</div>
 				<nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-					for _, mb := range mailboxes {
+					for _, mb := range sortMailboxes(mailboxes) {
 						<div class="space-y-1">
 							<a 
 								href={ templ.URL("/mailbox/" + mb.ID.String()) }
@@ -34,9 +101,7 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 								class="flex items-center px-4 py-2 text-sm font-bold rounded-lg transition-colors cursor-pointer"
 								x-bind:class={ "currentMailboxID === '" + mb.ID.String() + "' ? 'bg-purple-50 text-purple-900' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-700'" }
 							>
-								<svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-								</svg>
+								@MailboxIcon(mb.Name)
 								{ mb.Name }
 							</a>
 							

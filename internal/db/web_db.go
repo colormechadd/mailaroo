@@ -26,18 +26,10 @@ type WebDB interface {
 	MarkEmailRead(ctx context.Context, emailID, userID uuid.UUID, read bool) error
 	MarkEmailStarred(ctx context.Context, emailID, userID uuid.UUID, starred bool) error
 	MarkEmailDeleted(ctx context.Context, emailID, userID uuid.UUID, deleted bool) error
-}
 
-func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
-	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active FROM "user" WHERE username = $1`, username)
-	return &user, err
-}
-
-func (db *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
-	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active FROM "user" WHERE id = $1`, id)
-	return &user, err
+	GetActiveSendingAddresses(ctx context.Context, userID uuid.UUID) ([]models.SendingAddress, error)
+	IsAuthorizedSendingAddress(ctx context.Context, userID uuid.UUID, address string) (bool, error)
+	GetSendingAddressByID(ctx context.Context, id, userID uuid.UUID) (*models.SendingAddress, error)
 }
 
 func (db *DB) CreateWebmailSession(ctx context.Context, userID uuid.UUID, token string, remoteIP, userAgent string, expires time.Time) error {
@@ -59,6 +51,12 @@ func (db *DB) ExpireWebmailSession(ctx context.Context, token string) error {
 	return err
 }
 
+func (db *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
+	var user models.User
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active FROM "user" WHERE id = $1`, id)
+	return &user, err
+}
+
 func (db *DB) GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error) {
 	var mailboxes []models.Mailbox
 	err := db.SelectContext(ctx, &mailboxes, "SELECT id, user_id, name FROM mailbox WHERE user_id = $1 ORDER BY name ASC", userID)
@@ -67,24 +65,28 @@ func (db *DB) GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]mod
 
 func (db *DB) GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, filter string, limit, offset int) ([]models.Email, error) {
 	var emails []models.Email
-	whereClause := "mailbox_id = $1 AND is_deleted = FALSE"
+	whereClause := "mailbox_id = $1 AND is_deleted = FALSE AND is_outbound = FALSE"
 	
 	switch filter {
 	case "unread":
-		whereClause = "mailbox_id = $1 AND is_read = FALSE AND is_deleted = FALSE"
+		whereClause = "mailbox_id = $1 AND is_read = FALSE AND is_deleted = FALSE AND is_outbound = FALSE"
 	case "read":
-		whereClause = "mailbox_id = $1 AND is_read = TRUE AND is_deleted = FALSE"
+		whereClause = "mailbox_id = $1 AND is_read = TRUE AND is_deleted = FALSE AND is_outbound = FALSE"
 	case "starred":
 		whereClause = "mailbox_id = $1 AND is_star = TRUE AND is_deleted = FALSE"
 	case "deleted":
 		whereClause = "mailbox_id = $1 AND is_deleted = TRUE"
+	case "sent":
+		whereClause = "mailbox_id = $1 AND is_outbound = TRUE AND is_deleted = FALSE"
+	case "all":
+		whereClause = "mailbox_id = $1 AND is_deleted = FALSE"
 	}
 
 	query := fmt.Sprintf(`
 		SELECT 
 			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
 			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, is_deleted
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, is_deleted, is_outbound, sending_address_id
 		FROM email 
 		WHERE %s
 		ORDER BY receive_datetime DESC 
@@ -101,7 +103,7 @@ func (db *DB) GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Emai
 		SELECT 
 			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
 			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, is_deleted
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, is_deleted, is_outbound, sending_address_id
 		FROM email 
 		WHERE id = $1
 	`, emailID)
@@ -114,7 +116,7 @@ func (db *DB) GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID
 		SELECT 
 			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id, 
 			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address, 
-			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.is_deleted
+			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.is_deleted, e.is_outbound, e.sending_address_id
 		FROM email e
 		JOIN mailbox m ON e.mailbox_id = m.id
 		WHERE e.id = $1 AND m.user_id = $2
@@ -193,4 +195,22 @@ func (db *DB) MarkEmailDeleted(ctx context.Context, emailID, userID uuid.UUID, d
 		WHERE e.mailbox_id = m.id AND e.id = $2 AND m.user_id = $3
 	`, deleted, emailID, userID)
 	return err
+}
+
+func (db *DB) GetActiveSendingAddresses(ctx context.Context, userID uuid.UUID) ([]models.SendingAddress, error) {
+	var addresses []models.SendingAddress
+	err := db.SelectContext(ctx, &addresses, "SELECT id, user_id, mailbox_id, address, is_active FROM sending_address WHERE user_id = $1 AND is_active = TRUE ORDER BY address ASC", userID)
+	return addresses, err
+}
+
+func (db *DB) IsAuthorizedSendingAddress(ctx context.Context, userID uuid.UUID, address string) (bool, error) {
+	var count int
+	err := db.GetContext(ctx, &count, "SELECT COUNT(*) FROM sending_address WHERE user_id = $1 AND address = $2 AND is_active = TRUE", userID, address)
+	return count > 0, err
+}
+
+func (db *DB) GetSendingAddressByID(ctx context.Context, id, userID uuid.UUID) (*models.SendingAddress, error) {
+	var sa models.SendingAddress
+	err := db.GetContext(ctx, &sa, "SELECT id, user_id, mailbox_id, address, is_active FROM sending_address WHERE id = $1 AND user_id = $2 AND is_active = TRUE", id, userID)
+	return &sa, err
 }

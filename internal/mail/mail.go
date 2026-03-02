@@ -1,0 +1,338 @@
+package mail
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/colormechadd/maileroo/internal/storage"
+	"github.com/colormechadd/maileroo/pkg/models"
+	gomail "github.com/emersion/go-message/mail"
+	"github.com/google/uuid"
+	"github.com/klauspost/compress/zstd"
+	"github.com/microcosm-cc/bluemonday"
+)
+
+type Repository interface {
+	FindThreadIDByMessageIDs(ctx context.Context, mailboxID uuid.UUID, messageIDs []string) (uuid.UUID, error)
+	CreateThread(ctx context.Context, thread *models.Thread) error
+	CreateEmail(ctx context.Context, email *models.Email) error
+	CreateAttachment(ctx context.Context, att *models.EmailAttachment) error
+}
+
+type Service struct {
+	repo        Repository
+	storage     storage.Storage
+	compression string // "zstd", "gzip", "none"
+	policy      *bluemonday.Policy
+}
+
+func NewService(repo Repository, storage storage.Storage, compression string) *Service {
+	p := bluemonday.UGCPolicy()
+	p.AllowStyling()
+
+	return &Service{
+		repo:        repo,
+		storage:     storage,
+		compression: compression,
+		policy:      p,
+	}
+}
+
+type PersistOptions struct {
+	MailboxID        uuid.UUID
+	RawMessage       []byte
+	IsOutbound       bool
+	UserID           uuid.UUID
+	IngestionID      *uuid.UUID
+	AddressMappingID *uuid.UUID
+	SendingAddressID *uuid.UUID
+}
+
+func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Email, error) {
+	// 1. Compression
+	data, suffix, err := s.CompressData(opts.RawMessage, s.compression)
+	if err != nil {
+		return nil, fmt.Errorf("compression failed: %w", err)
+	}
+
+	emailID := uuid.New()
+	storageKey := fmt.Sprintf("%s/%s.eml%s", opts.MailboxID, emailID, suffix)
+
+	// 2. Storage
+	if err := s.storage.Save(ctx, storageKey, bytes.NewReader(data)); err != nil {
+		return nil, fmt.Errorf("storage save failed: %w", err)
+	}
+
+	// 3. Parsing
+	mr, err := gomail.CreateReader(bytes.NewReader(opts.RawMessage))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mail reader: %w", err)
+	}
+	defer mr.Close()
+
+	subject, _ := mr.Header.Subject()
+	msgID, _ := mr.Header.MessageID()
+	if msgID == "" {
+		msgID = emailID.String()
+	}
+
+	fromAddrs, _ := mr.Header.AddressList("From")
+	from := ""
+	if len(fromAddrs) > 0 {
+		from = fromAddrs[0].Address
+	}
+
+	toAddrs, _ := mr.Header.AddressList("To")
+	to := ""
+	if len(toAddrs) > 0 {
+		to = toAddrs[0].Address
+	}
+
+	inReplyTo, _ := mr.Header.Text("In-Reply-To")
+	referencesRaw, _ := mr.Header.Text("References")
+	references := s.ParseReferences(referencesRaw)
+
+	// 4. Threading
+	lookups := []string{}
+	if inReplyTo != "" {
+		lookups = append(lookups, strings.Trim(inReplyTo, "<> "))
+	}
+	for _, r := range references {
+		lookups = append(lookups, strings.Trim(r, "<> "))
+	}
+
+	var threadID uuid.UUID
+	if len(lookups) > 0 {
+		threadID, _ = s.repo.FindThreadIDByMessageIDs(ctx, opts.MailboxID, lookups)
+	}
+
+	if threadID == uuid.Nil {
+		threadID = uuid.New()
+		newThread := &models.Thread{
+			ID:        threadID,
+			MailboxID: opts.MailboxID,
+			Subject:   subject,
+		}
+		if err := s.repo.CreateThread(ctx, newThread); err != nil {
+			return nil, fmt.Errorf("thread creation failed: %w", err)
+		}
+	}
+
+	// 5. DB Persistence
+	email := &models.Email{
+		ID:               emailID,
+		MailboxID:        opts.MailboxID,
+		ThreadID:         &threadID,
+		AddressMappingID: opts.AddressMappingID,
+		IngestionID:      opts.IngestionID,
+		SendingAddressID: opts.SendingAddressID,
+		MessageID:        msgID,
+		InReplyTo:        &inReplyTo,
+		References:       &referencesRaw,
+		Subject:          subject,
+		FromAddress:      from,
+		ToAddress:        to,
+		StorageKey:       storageKey,
+		Size:             int64(len(opts.RawMessage)),
+		ReceiveDatetime:  time.Now(),
+		IsRead:           opts.IsOutbound, // Sent mail is read
+		IsStar:           false,
+		IsOutbound:       opts.IsOutbound,
+	}
+
+	if err := s.repo.CreateEmail(ctx, email); err != nil {
+		return nil, fmt.Errorf("email creation failed: %w", err)
+	}
+
+	// 6. Attachments
+	for {
+		pPart, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			slog.Error("error reading message part", "email_id", emailID, "error", err)
+			break
+		}
+
+		switch h := pPart.Header.(type) {
+		case *gomail.AttachmentHeader:
+			filename, _ := h.Filename()
+			contentType, _, _ := h.ContentType()
+
+			attData, err := io.ReadAll(pPart.Body)
+			if err != nil {
+				slog.Error("failed to read attachment body", "email_id", emailID, "filename", filename, "error", err)
+				continue
+			}
+
+			cData, aSuffix, err := s.CompressData(attData, s.compression)
+			if err != nil {
+				slog.Error("failed to compress attachment", "filename", filename, "error", err)
+				continue
+			}
+
+			attID := uuid.New()
+			attKey := fmt.Sprintf("%s/attachments/%s/%s_%s%s", opts.MailboxID, emailID, attID, filename, aSuffix)
+
+			if err := s.storage.Save(ctx, attKey, bytes.NewReader(cData)); err != nil {
+				slog.Error("failed to save attachment to storage", "email_id", emailID, "filename", filename, "error", err)
+				continue
+			}
+
+			att := &models.EmailAttachment{
+				ID:          attID,
+				EmailID:     emailID,
+				Filename:    filename,
+				ContentType: contentType,
+				Size:        int64(len(attData)),
+				StorageKey:  attKey,
+			}
+
+			if err := s.repo.CreateAttachment(ctx, att); err != nil {
+				slog.Error("failed to save attachment metadata", "email_id", emailID, "filename", filename, "error", err)
+				continue
+			}
+		}
+	}
+
+	return email, nil
+}
+
+func (s *Service) FetchBody(ctx context.Context, email *models.Email) (string, bool, error) {
+	rc, err := s.storage.Get(ctx, email.StorageKey)
+	if err != nil {
+		return "", false, err
+	}
+	defer rc.Close()
+
+	bodyReader, err := s.DecompressReader(rc, email.StorageKey)
+	if err != nil {
+		return "", false, err
+	}
+	if closer, ok := bodyReader.(io.Closer); ok {
+		defer closer.Close()
+	}
+
+	mr, err := gomail.CreateReader(bodyReader)
+	if err != nil {
+		b, _ := io.ReadAll(bodyReader)
+		return string(b), false, nil
+	}
+	defer mr.Close()
+
+	var content string
+	var isHTML bool
+	for {
+		p, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+
+		var ct string
+		switch h := p.Header.(type) {
+		case *gomail.InlineHeader:
+			ct, _, _ = h.ContentType()
+		case *gomail.AttachmentHeader:
+			ct, _, _ = h.ContentType()
+		}
+
+		if ct == "text/html" {
+			b, _ := io.ReadAll(p.Body)
+			content = s.policy.Sanitize(string(b))
+			isHTML = true
+			break
+		}
+		if ct == "text/plain" && content == "" {
+			b, _ := io.ReadAll(p.Body)
+			content = string(b)
+		}
+	}
+	return content, isHTML, nil
+}
+
+func (s *Service) FetchHeaders(ctx context.Context, email *models.Email) (string, error) {
+	rc, err := s.storage.Get(ctx, email.StorageKey)
+	if err != nil {
+		return "", err
+	}
+	defer rc.Close()
+
+	bodyReader, err := s.DecompressReader(rc, email.StorageKey)
+	if err != nil {
+		return "", err
+	}
+	if closer, ok := bodyReader.(io.Closer); ok {
+		defer closer.Close()
+	}
+
+	mr, err := gomail.CreateReader(bodyReader)
+	if err != nil {
+		return "", err
+	}
+	defer mr.Close()
+
+	var sb strings.Builder
+	fields := mr.Header.Fields()
+	for fields.Next() {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", fields.Key(), fields.Value()))
+	}
+	return sb.String(), nil
+}
+
+func (s *Service) DecompressReader(r io.Reader, key string) (io.Reader, error) {
+	if strings.HasSuffix(key, ".zst") {
+		zr, err := zstd.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+		return zr, nil
+	} else if strings.HasSuffix(key, ".gz") {
+		gr, err := gzip.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+		return gr, nil
+	}
+	return r, nil
+}
+
+func (s *Service) CompressData(data []byte, algorithm string) ([]byte, string, error) {
+	switch strings.ToLower(algorithm) {
+	case "zstd":
+		var buf bytes.Buffer
+		zw, _ := zstd.NewWriter(&buf)
+		if _, err := zw.Write(data); err != nil {
+			return nil, "", err
+		}
+		if err := zw.Close(); err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), ".zst", nil
+	case "gzip":
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		if _, err := gw.Write(data); err != nil {
+			return nil, "", err
+		}
+		if err := gw.Close(); err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), ".gz", nil
+	default:
+		return data, "", nil
+	}
+}
+
+func (s *Service) ParseReferences(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	return strings.Fields(raw)
+}

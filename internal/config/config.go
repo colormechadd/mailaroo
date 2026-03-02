@@ -48,7 +48,7 @@ type Config struct {
 		RBLServers []string `mapstructure:"RBL_SERVERS"`
 	} `mapstructure:"SPAM"`
 
-	SMTP SMTPConfig `mapstructure:"SMTP"`
+	SMTP         SMTPConfig         `mapstructure:"SMTP"`
 
 	StorageType string `mapstructure:"STORAGE_TYPE"` // "local", "s3", "gcs"
 	Compression string `mapstructure:"COMPRESSION"`  // "zstd", "gzip", "none"
@@ -86,9 +86,6 @@ func LoadConfig() (*Config, error) {
 	viper.AutomaticEnv()
 	viper.BindEnv("DATABASE_URL")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	// Explicitly bind nested keys if needed, though AutomaticEnv + Replacer should work.
-	// But let's handle the manual override for common ones if they fail.
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {

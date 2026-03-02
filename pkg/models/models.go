@@ -20,6 +20,14 @@ type Mailbox struct {
 	Name   string    `db:"name" json:"name"`
 }
 
+type SendingAddress struct {
+	ID             uuid.UUID `db:"id" json:"id"`
+	UserID         uuid.UUID `db:"user_id" json:"user_id"`
+	MailboxID      uuid.UUID `db:"mailbox_id" json:"mailbox_id"`
+	Address        string    `db:"address" json:"address"`
+	IsActive       bool      `db:"is_active" json:"is_active"`
+}
+
 type AddressMapping struct {
 	ID             uuid.UUID `db:"id" json:"id"`
 	AddressPattern string    `db:"address_pattern" json:"address_pattern"`
@@ -79,6 +87,8 @@ type Email struct {
 	IsRead           bool       `db:"is_read" json:"is_read"`
 	IsStar           bool       `db:"is_star" json:"is_star"`
 	IsDeleted        bool       `db:"is_deleted" json:"is_deleted"`
+	IsOutbound       bool       `db:"is_outbound" json:"is_outbound"`
+	SendingAddressID *uuid.UUID `db:"sending_address_id" json:"sending_address_id"`
 }
 
 type EmailAttachment struct {

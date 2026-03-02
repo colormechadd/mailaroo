@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -17,36 +16,34 @@ import (
 	"github.com/a-h/templ"
 	"github.com/colormechadd/maileroo/internal/config"
 	"github.com/colormechadd/maileroo/internal/db"
+	"github.com/colormechadd/maileroo/internal/mail"
+	"github.com/colormechadd/maileroo/internal/outbound"
 	"github.com/colormechadd/maileroo/internal/storage"
 	"github.com/colormechadd/maileroo/pkg/auth"
 	"github.com/colormechadd/maileroo/pkg/models"
 	"github.com/colormechadd/maileroo/templates"
-	"github.com/emersion/go-message/mail"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
-	"github.com/klauspost/compress/zstd"
-	"github.com/microcosm-cc/bluemonday"
 )
 
 type Server struct {
-	cfg     config.Config
-	db      db.WebDB
-	storage storage.Storage
-	policy  *bluemonday.Policy
-	hub     *Hub
+	cfg      config.Config
+	db       db.WebDB
+	storage  storage.Storage
+	hub      *Hub
+	sender   outbound.Sender
+	mail     *mail.Service
 }
 
-func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage, hub *Hub) *Server {
-	p := bluemonday.UGCPolicy()
-	p.AllowStyling()
-
+func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage, hub *Hub, sender outbound.Sender, mailSvc *mail.Service) *Server {
 	return &Server{
-		cfg:     cfg,
-		db:      webDB,
-		storage: storage,
-		policy:  p,
-		hub:     hub,
+		cfg:      cfg,
+		db:       webDB,
+		storage:  storage,
+		hub:      hub,
+		sender:   sender,
+		mail:     mailSvc,
 	}
 }
 
@@ -76,9 +73,108 @@ func (s *Server) Routes() chi.Router {
 		r.Post("/email/{emailID}/star", s.handleEmailStar)
 		r.Post("/email/{emailID}/delete", s.handleEmailDelete)
 		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
+		
+		r.Get("/compose", s.handleCompose)
+		r.Post("/send", s.handleEmailSend)
 	})
 
 	return r
+}
+
+func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	addresses, err := s.db.GetActiveSendingAddresses(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", templates.Compose(addresses))
+}
+
+func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	
+	if err := r.ParseMultipartForm(50 * 1024 * 1024); err != nil {
+		slog.Error("failed to parse multipart form", "error", err)
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	fromIDRaw := r.FormValue("from_id")
+	toRaw := r.FormValue("to")
+	subject := r.FormValue("subject")
+	body := r.FormValue("body")
+	bodyHTML := r.FormValue("body_html")
+
+	fromID, err := uuid.Parse(fromIDRaw)
+	if err != nil {
+		http.Error(w, "Invalid From ID", http.StatusBadRequest)
+		return
+	}
+
+	sa, err := s.db.GetSendingAddressByID(r.Context(), fromID, user.ID)
+	if err != nil {
+		slog.Warn("unauthorized sending attempt", "user_id", user.ID, "from_id", fromID, "error", err)
+		http.Error(w, "Unauthorized from address", http.StatusForbidden)
+		return
+	}
+
+	to := strings.Split(toRaw, ",")
+	for i := range to {
+		to[i] = strings.TrimSpace(to[i])
+	}
+
+	outMsg := outbound.Message{
+		From:     sa.Address,
+		To:       to,
+		Subject:  subject,
+		TextBody: body,
+		HTMLBody: bodyHTML,
+	}
+
+	files := r.MultipartForm.File["attachments"]
+	for _, fileHeader := range files {
+		f, err := fileHeader.Open()
+		if err != nil {
+			slog.Error("failed to open attachment", "filename", fileHeader.Filename, "error", err)
+			continue
+		}
+		outMsg.Attachments = append(outMsg.Attachments, outbound.Attachment{
+			Filename:    fileHeader.Filename,
+			ContentType: fileHeader.Header.Get("Content-Type"),
+			Content:     f,
+		})
+	}
+
+	rawBytes, err := s.sender.SendMessage(r.Context(), outMsg)
+	if err != nil {
+		slog.Error("failed to send email via MTA", "user_id", user.ID, "error", err)
+		http.Error(w, "Failed to send email", http.StatusInternalServerError)
+		return
+	}
+
+	// Persist to the mailbox associated with the sending address
+	go func() {
+		_, err := s.mail.Persist(context.Background(), mail.PersistOptions{
+			MailboxID:        sa.MailboxID,
+			RawMessage:       rawBytes,
+			IsOutbound:       true,
+			UserID:           user.ID,
+			SendingAddressID: &sa.ID,
+		})
+		if err != nil {
+			slog.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
+		}
+	}()
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Location", "/mailbox/"+sa.MailboxID.String()+"?filter=sent")
+		return
+	}
+	http.Redirect(w, r, "/mailbox/"+sa.MailboxID.String()+"?filter=sent", http.StatusSeeOther)
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +233,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(mailboxes) > 0 {
-		http.Redirect(w, r, "/mailbox/"+mailboxes[0].ID.String(), http.StatusSeeOther)
+		targetID := mailboxes[0].ID.String()
+		for _, mb := range mailboxes {
+			if strings.ToLower(mb.Name) == "inbox" {
+				targetID = mb.ID.String()
+				break
+			}
+		}
+		http.Redirect(w, r, "/mailbox/"+targetID, http.StatusSeeOther)
 		return
 	}
 
@@ -201,7 +304,11 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
-	content, isHTML := s.fetchEmailBody(r.Context(), email)
+	content, isHTML, err := s.mail.FetchBody(r.Context(), email)
+	if err != nil {
+		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
+		content = "Failed to load content"
+	}
 
 	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
@@ -240,7 +347,10 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
-	content, isHTML := s.fetchEmailBody(r.Context(), email)
+	content, isHTML, err := s.mail.FetchBody(r.Context(), email)
+	if err != nil {
+		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
+	}
 	email.IsStar = starred
 	
 	templates.EmailDetail(email, attachments, content, isHTML).Render(r.Context(), w)
@@ -289,7 +399,10 @@ func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	headers := s.fetchEmailHeaders(r.Context(), email)
+	headers, err := s.mail.FetchHeaders(r.Context(), email)
+	if err != nil {
+		slog.Error("failed to fetch headers", "key", email.StorageKey, "error", err)
+	}
 
 	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
@@ -334,102 +447,6 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, r, user, mailboxes, email.MailboxID, "all", templates.EmailPipeline(email, steps))
-}
-
-func (s *Server) fetchEmailBody(ctx context.Context, email *models.Email) (string, bool) {
-	rc, err := s.storage.Get(ctx, email.StorageKey)
-	if err != nil {
-		slog.Error("failed to fetch body from storage", "key", email.StorageKey, "error", err)
-		return "Failed to load content", false
-	}
-	defer rc.Close()
-
-	var bodyReader io.Reader = rc
-	if strings.HasSuffix(email.StorageKey, ".zst") {
-		zr, err := zstd.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create zstd reader", "key", email.StorageKey, "error", err)
-		} else {
-			defer zr.Close()
-			bodyReader = zr
-		}
-	} else if strings.HasSuffix(email.StorageKey, ".gz") {
-		gr, err := gzip.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create gzip reader", "key", email.StorageKey, "error", err)
-		} else {
-			defer gr.Close()
-			bodyReader = gr
-		}
-	}
-
-	mr, err := mail.CreateReader(bodyReader)
-	if err != nil {
-		slog.Error("failed to create mail reader", "key", email.StorageKey, "error", err)
-		b, _ := io.ReadAll(bodyReader)
-		return string(b), false
-	}
-	defer mr.Close()
-
-	var content string
-	var isHTML bool
-	for {
-		p, err := mr.NextPart()
-		if err != nil { break }
-
-		var ct string
-		switch h := p.Header.(type) {
-		case *mail.InlineHeader: ct, _, _ = h.ContentType()
-		case *mail.AttachmentHeader: ct, _, _ = h.ContentType()
-		}
-
-		if ct == "text/html" {
-			b, _ := io.ReadAll(p.Body)
-			content = s.policy.Sanitize(string(b))
-			isHTML = true
-			break
-		}
-		if ct == "text/plain" && content == "" {
-			b, _ := io.ReadAll(p.Body)
-			content = string(b)
-		}
-	}
-	return content, isHTML
-}
-
-func (s *Server) fetchEmailHeaders(ctx context.Context, email *models.Email) string {
-	rc, err := s.storage.Get(ctx, email.StorageKey)
-	if err != nil { 
-		slog.Error("failed to fetch body for headers", "key", email.StorageKey, "error", err)
-		return "" 
-	}
-	defer rc.Close()
-
-	var bodyReader io.Reader = rc
-	if strings.HasSuffix(email.StorageKey, ".zst") {
-		zr, err := zstd.NewReader(rc)
-		if err == nil {
-			defer zr.Close()
-			bodyReader = zr
-		}
-	} else if strings.HasSuffix(email.StorageKey, ".gz") {
-		gr, err := gzip.NewReader(rc)
-		if err == nil {
-			defer gr.Close()
-			bodyReader = gr
-		}
-	}
-
-	mr, err := mail.CreateReader(bodyReader)
-	if err != nil { return "" }
-	defer mr.Close()
-
-	var sb strings.Builder
-	fields := mr.Header.Fields()
-	for fields.Next() {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", fields.Key(), fields.Value()))
-	}
-	return sb.String()
 }
 
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
@@ -511,7 +528,9 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("maileroo_session")
 	if err == nil {
-		s.db.ExpireWebmailSession(r.Context(), cookie.Value)
+		if err := s.db.ExpireWebmailSession(r.Context(), cookie.Value); err != nil {
+			slog.Error("failed to expire session on logout", "error", err)
+		}
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -548,23 +567,14 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 	}
 	defer rc.Close()
 
-	var bodyReader io.Reader = rc
-	if strings.HasSuffix(att.StorageKey, ".zst") {
-		zr, err := zstd.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create zstd reader for attachment", "key", att.StorageKey, "error", err)
-		} else {
-			defer zr.Close()
-			bodyReader = zr
-		}
-	} else if strings.HasSuffix(att.StorageKey, ".gz") {
-		gr, err := gzip.NewReader(rc)
-		if err != nil {
-			slog.Error("failed to create gzip reader for attachment", "key", att.StorageKey, "error", err)
-		} else {
-			defer gr.Close()
-			bodyReader = gr
-		}
+	bodyReader, err := s.mail.DecompressReader(rc, att.StorageKey)
+	if err != nil {
+		slog.Error("failed to decompress attachment", "key", att.StorageKey, "error", err)
+		http.Error(w, "Failed to load", http.StatusInternalServerError)
+		return
+	}
+	if closer, ok := bodyReader.(io.Closer); ok {
+		defer closer.Close()
 	}
 
 	w.Header().Set("Content-Type", att.ContentType)

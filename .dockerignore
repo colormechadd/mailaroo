@@ -1,0 +1,11 @@
+.git
+.air
+data
+bin
+tmp
+maileroo
+static/css/output.css
+*_templ.go
+node_modules
+.env
+.envrc

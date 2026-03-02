@@ -1,4 +1,35 @@
 services:
+  app:
+    build: .
+    restart: always
+    environment:
+      MAILEROO_DATABASE_URL: postgres://${DB_USER:-maileroo}:${DB_PASS:-maileroo_pass}@db:5432/${DB_NAME:-maileroo}?sslmode=disable
+      MAILEROO_WEB_PORT: 8080
+      MAILEROO_LOG_LEVEL: info
+      MAILEROO_STORAGE_TYPE: local
+      MAILEROO_LOCAL_STORAGE_BASE_PATH: /app/data/emails
+    ports:
+      - "8080:8080"
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "2525:2525"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    image: amacneil/dbmate
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-maileroo}:${DB_PASS:-maileroo_pass}@db:5432/${DB_NAME:-maileroo}?sslmode=disable
+    volumes:
+      - ./db/migrations:/db/migrations
+    command: up
+    depends_on:
+      - db
+
   db:
     image: postgres:18-alpine
     restart: always

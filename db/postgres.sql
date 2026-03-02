@@ -60,7 +60,9 @@ CREATE TABLE public.email (
     "references" text,
     is_deleted boolean DEFAULT false,
     read_datetime timestamp with time zone,
-    star_datetime timestamp with time zone
+    star_datetime timestamp with time zone,
+    is_outbound boolean DEFAULT false,
+    sending_address_id uuid
 );
 
 
@@ -143,6 +145,20 @@ CREATE TABLE public.mailbox_block_rule (
 
 CREATE TABLE public.schema_migrations (
     version character varying NOT NULL
+);
+
+
+--
+-- Name: sending_address; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sending_address (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    address text NOT NULL,
+    is_active boolean DEFAULT true,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    mailbox_id uuid NOT NULL
 );
 
 
@@ -253,6 +269,22 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: sending_address sending_address_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sending_address
+    ADD CONSTRAINT sending_address_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sending_address sending_address_user_id_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sending_address
+    ADD CONSTRAINT sending_address_user_id_address_key UNIQUE (user_id, address);
+
+
+--
 -- Name: thread thread_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -321,6 +353,13 @@ CREATE INDEX idx_email_is_deleted ON public.email USING btree (is_deleted);
 
 
 --
+-- Name: idx_email_is_outbound; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_is_outbound ON public.email USING btree (is_outbound);
+
+
+--
 -- Name: idx_email_is_read; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -356,6 +395,13 @@ CREATE INDEX idx_email_receive_datetime ON public.email USING btree (receive_dat
 
 
 --
+-- Name: idx_email_sending_address_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_sending_address_id ON public.email USING btree (sending_address_id);
+
+
+--
 -- Name: idx_email_thread_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -374,6 +420,13 @@ CREATE INDEX idx_ingestion_step_ingestion_id ON public.ingestion_step USING btre
 --
 
 CREATE INDEX idx_mailbox_block_rule_mailbox_id ON public.mailbox_block_rule USING btree (mailbox_id);
+
+
+--
+-- Name: idx_sending_address_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sending_address_user_id ON public.sending_address USING btree (user_id);
 
 
 --
@@ -431,6 +484,14 @@ ALTER TABLE ONLY public.email
 
 
 --
+-- Name: email email_sending_address_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email
+    ADD CONSTRAINT email_sending_address_id_fkey FOREIGN KEY (sending_address_id) REFERENCES public.sending_address(id) ON DELETE SET NULL;
+
+
+--
 -- Name: email email_thread_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -460,6 +521,22 @@ ALTER TABLE ONLY public.mailbox_block_rule
 
 ALTER TABLE ONLY public.mailbox
     ADD CONSTRAINT mailbox_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sending_address sending_address_mailbox_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sending_address
+    ADD CONSTRAINT sending_address_mailbox_id_fkey FOREIGN KEY (mailbox_id) REFERENCES public.mailbox(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sending_address sending_address_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sending_address
+    ADD CONSTRAINT sending_address_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 
 
 --
@@ -495,4 +572,8 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260228215437'),
     ('20260228220017'),
     ('20260228222916'),
-    ('20260301174808');
+    ('20260301174808'),
+    ('20260302040218'),
+    ('20260302042724'),
+    ('20260302043417'),
+    ('20260302044323');

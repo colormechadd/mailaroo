@@ -9,6 +9,7 @@ import (
 
 	"github.com/colormechadd/maileroo/internal/config"
 	"github.com/colormechadd/maileroo/internal/db"
+	"github.com/colormechadd/maileroo/internal/mail"
 	"github.com/colormechadd/maileroo/internal/storage"
 	"github.com/colormechadd/maileroo/pkg/models"
 	"github.com/google/uuid"
@@ -42,21 +43,22 @@ type Pipeline struct {
 	db      db.PipelineDB
 	storage storage.Storage
 	hub     Broadcaster
+	mail    *mail.Service
 	steps   []struct {
 		name string
 		fn   Step
 	}
 }
 
-func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, hub Broadcaster) *Pipeline {
+func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, hub Broadcaster, mailSvc *mail.Service) *Pipeline {
 	p := &Pipeline{
 		cfg:     cfg,
 		db:      db,
 		storage: storage,
 		hub:     hub,
+		mail:    mailSvc,
 	}
 
-	// Explicitly define the pipeline order
 	p.steps = []struct {
 		name string
 		fn   Step
@@ -86,7 +88,6 @@ type IngestionContext struct {
 func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {
 	slog.Info("processing ingestion", "ingestion_id", ictx.ID, "from", ictx.FromAddress, "mailbox_id", ictx.TargetMailboxID)
 
-	// Create ingestion record
 	ingestion := &models.Ingestion{
 		ID:          ictx.ID,
 		FromAddress: &ictx.FromAddress,
@@ -101,7 +102,6 @@ func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {
 		return err
 	}
 
-	// Run all steps in the defined order
 	for _, step := range p.steps {
 		status := p.runStep(ctx, ictx, step.name, step.fn)
 		if status == StatusFail {
@@ -115,22 +115,13 @@ func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {
 	}
 
 	slog.Info("ingestion completed successfully", "ingestion_id", ictx.ID)
-	// Final status update
 	return p.db.UpdateIngestionStatus(ctx, ictx.ID, "accepted")
 }
 
 func (p *Pipeline) runStep(ctx context.Context, ictx *IngestionContext, name string, fn Step) StepStatus {
-	slog.Debug("starting pipeline step", "ingestion_id", ictx.ID, "step", name)
 	start := time.Now()
 	status, details, err := fn(ctx, p, ictx)
 	duration := time.Since(start)
-
-	l := slog.With("ingestion_id", ictx.ID, "step", name, "status", status, "duration_ms", duration.Milliseconds())
-	if err != nil {
-		l.Error("step execution error", "error", err)
-	} else {
-		l.Debug("step execution completed")
-	}
 
 	detailsJSON, _ := json.Marshal(details)
 	if err != nil && details == nil {

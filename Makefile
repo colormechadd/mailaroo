@@ -16,6 +16,9 @@ clean:
 generate:
 	go generate ./...
 
+docker-build:
+	docker build -t maileroo .
+
 tailwind-watch:
 	tailwindcss -c ./tailwind.config.js -i ./static/css/input.css -o ./static/css/output.css --watch
 

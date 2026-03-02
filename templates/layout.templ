@@ -12,6 +12,23 @@ templ Layout(title string) {
 			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 			<script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
 			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+			<link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.8/dist/trix.css"/>
+  			<script type="text/javascript" src="https://unpkg.com/trix@2.0.8/dist/trix.umd.min.js"></script>
+			<style>
+				[x-cloak] { display: none !important; }
+				trix-toolbar [data-trix-button-group="file-tools"] { display: none !important; }
+				trix-editor { 
+					min-height: 300px !important; 
+					border: none !important; 
+					padding: 1.5rem !important;
+					outline: none !important;
+				}
+				trix-toolbar {
+					border-bottom: 1px solid #f3e8ff !important;
+					padding-top: 0.5rem !important;
+					padding-bottom: 0.5rem !important;
+				}
+			</style>
 			<script>
 				function formatLocalTimes() {
 					document.querySelectorAll('[data-local-time]').forEach(el => {
