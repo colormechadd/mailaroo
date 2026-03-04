@@ -62,7 +62,8 @@ CREATE TABLE public.email (
     read_datetime timestamp with time zone,
     star_datetime timestamp with time zone,
     is_outbound boolean DEFAULT false,
-    sending_address_id uuid
+    sending_address_id uuid,
+    is_quarantined boolean DEFAULT false
 );
 
 
@@ -360,6 +361,13 @@ CREATE INDEX idx_email_is_outbound ON public.email USING btree (is_outbound);
 
 
 --
+-- Name: idx_email_is_quarantined; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_is_quarantined ON public.email USING btree (is_quarantined) WHERE (is_quarantined = true);
+
+
+--
 -- Name: idx_email_is_read; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -576,4 +584,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260302040218'),
     ('20260302042724'),
     ('20260302043417'),
-    ('20260302044323');
+    ('20260302044323'),
+    ('20260302050000');

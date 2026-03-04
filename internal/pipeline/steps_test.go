@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/colormechadd/maileroo/internal/config"
+	"github.com/colormechadd/maileroo/internal/mail"
+	"github.com/colormechadd/maileroo/pkg/models"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -81,7 +83,9 @@ func TestDeliver(t *testing.T) {
 	mockStorage := new(MockStorage)
 	cfg := &config.Config{}
 	cfg.Compression = "none"
-	p := &Pipeline{cfg: cfg, db: mockDB, storage: mockStorage}
+	
+	mailSvc := mail.NewService(mockDB, mockStorage, "none")
+	p := &Pipeline{cfg: cfg, db: mockDB, storage: mockStorage, mail: mailSvc}
 
 	mailboxID := uuid.New()
 	ingestionID := uuid.New()
@@ -107,14 +111,36 @@ func TestDeliver(t *testing.T) {
 		mockDB.On("CreateThread", mock.Anything, mock.Anything).Return(nil).Once()
 		
 		// Mock DB email creation
-		mockDB.On("CreateEmail", mock.Anything, mock.Anything).Return(nil).Once()
+		mockDB.On("CreateEmail", mock.Anything, mock.MatchedBy(func(e *models.Email) bool {
+			return e.IsQuarantined == true
+		})).Return(nil).Once()
 
 		status, _, err := Deliver(ctx, p, ictx)
 		assert.NoError(t, err)
 		assert.Equal(t, StatusPass, status)
 		assert.NotEmpty(t, ictx.StorageKey)
+		assert.NotEqual(t, uuid.Nil, ictx.EmailID)
 		
 		mockDB.AssertExpectations(t)
 		mockStorage.AssertExpectations(t)
+	})
+}
+
+func TestFinalize(t *testing.T) {
+	ctx := context.Background()
+	mockDB := new(MockDB)
+	p := &Pipeline{db: mockDB}
+	
+	emailID := uuid.New()
+	ictx := &IngestionContext{
+		EmailID: emailID,
+	}
+
+	t.Run("successful finalize", func(t *testing.T) {
+		mockDB.On("UpdateEmailQuarantineStatus", mock.Anything, emailID, false).Return(nil).Once()
+		status, _, err := Finalize(ctx, p, ictx)
+		assert.NoError(t, err)
+		assert.Equal(t, StatusPass, status)
+		mockDB.AssertExpectations(t)
 	})
 }

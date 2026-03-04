@@ -88,6 +88,7 @@ type Email struct {
 	IsStar           bool       `db:"is_star" json:"is_star"`
 	IsDeleted        bool       `db:"is_deleted" json:"is_deleted"`
 	IsOutbound       bool       `db:"is_outbound" json:"is_outbound"`
+	IsQuarantined    bool       `db:"is_quarantined" json:"is_quarantined"`
 	SendingAddressID *uuid.UUID `db:"sending_address_id" json:"sending_address_id"`
 }
 

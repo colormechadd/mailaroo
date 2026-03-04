@@ -38,6 +38,11 @@ func (m *MockDB) CreateEmail(ctx context.Context, email *models.Email) error {
 	return args.Error(0)
 }
 
+func (m *MockDB) UpdateEmailQuarantineStatus(ctx context.Context, id uuid.UUID, isQuarantined bool) error {
+	args := m.Called(ctx, id, isQuarantined)
+	return args.Error(0)
+}
+
 func (m *MockDB) CreateAttachment(ctx context.Context, attachment *models.EmailAttachment) error {
 	args := m.Called(ctx, attachment)
 	return args.Error(0)
@@ -51,6 +56,14 @@ func (m *MockDB) CreateThread(ctx context.Context, thread *models.Thread) error 
 func (m *MockDB) FindThreadIDByMessageIDs(ctx context.Context, mailboxID uuid.UUID, messageIDs []string) (uuid.UUID, error) {
 	args := m.Called(ctx, mailboxID, messageIDs)
 	return args.Get(0).(uuid.UUID), args.Error(1)
+}
+
+type MockHub struct {
+	mock.Mock
+}
+
+func (m *MockHub) Broadcast(event Event) {
+	m.Called(event)
 }
 
 type MockStorage struct {

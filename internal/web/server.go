@@ -72,6 +72,7 @@ func (s *Server) Routes() chi.Router {
 		r.Get("/email/{emailID}/pipeline", s.handleEmailPipeline)
 		r.Post("/email/{emailID}/star", s.handleEmailStar)
 		r.Post("/email/{emailID}/delete", s.handleEmailDelete)
+		r.Post("/email/{emailID}/release", s.handleEmailRelease)
 		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
 
 		r.Get("/compose", s.handleCompose)
@@ -382,6 +383,34 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/mailbox/"+email.MailboxID.String(), http.StatusSeeOther)
+}
+
+func (s *Server) handleEmailRelease(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	if err != nil {
+		slog.Error("failed to fetch email for release", "email_id", emailID, "user_id", user.ID, "error", err)
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	if err := s.db.MarkEmailQuarantined(r.Context(), emailID, user.ID, false); err != nil {
+		slog.Error("failed to release email", "email_id", emailID, "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/mailbox/"+email.MailboxID.String()+"?filter=quarantined")
+		return
+	}
+	http.Redirect(w, r, "/mailbox/"+email.MailboxID.String()+"?filter=quarantined", http.StatusSeeOther)
 }
 
 func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {

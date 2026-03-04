@@ -63,10 +63,11 @@ func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, 
 		name string
 		fn   Step
 	}{
+		{"deliver", Deliver},
 		{"validate_sender", ValidateSender},
 		{"spam", ValidateRBL},
 		{"block", CheckBlockingRules},
-		{"deliver", Deliver},
+		{"finalize", Finalize},
 		{"notify", Notify},
 	}
 
@@ -83,6 +84,7 @@ type IngestionContext struct {
 	TargetMailboxID  uuid.UUID
 	AddressMappingID uuid.UUID
 	StorageKey       string
+	EmailID          uuid.UUID
 }
 
 func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {

@@ -48,6 +48,7 @@ type PersistOptions struct {
 	MailboxID        uuid.UUID
 	RawMessage       []byte
 	IsOutbound       bool
+	IsQuarantined    bool
 	UserID           uuid.UUID
 	IngestionID      *uuid.UUID
 	AddressMappingID *uuid.UUID
@@ -144,6 +145,7 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 		IsRead:           opts.IsOutbound, // Sent mail is read
 		IsStar:           false,
 		IsOutbound:       opts.IsOutbound,
+		IsQuarantined:    opts.IsQuarantined,
 	}
 
 	if err := s.repo.CreateEmail(ctx, email); err != nil {

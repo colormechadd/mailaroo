@@ -15,6 +15,7 @@ type PipelineDB interface {
 	UpdateIngestionStatus(ctx context.Context, id uuid.UUID, status string) error
 	IsBlockedByMailboxRules(ctx context.Context, mailboxID uuid.UUID, fromAddress string) (bool, error)
 	CreateEmail(ctx context.Context, email *models.Email) error
+	UpdateEmailQuarantineStatus(ctx context.Context, id uuid.UUID, isQuarantined bool) error
 	CreateAttachment(ctx context.Context, attachment *models.EmailAttachment) error
 	CreateThread(ctx context.Context, thread *models.Thread) error
 	FindThreadIDByMessageIDs(ctx context.Context, mailboxID uuid.UUID, messageIDs []string) (uuid.UUID, error)
@@ -61,13 +62,20 @@ func (db *DB) CreateEmail(ctx context.Context, email *models.Email) error {
 		INSERT INTO email (
 			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
 			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star,
+			is_deleted, is_outbound, is_quarantined, sending_address_id
 		) VALUES (
 			:id, :mailbox_id, :thread_id, :address_mapping_id, :ingestion_id, :message_id, 
 			:in_reply_to, :references, :subject, :from_address, :to_address, 
-			:reply_to_address, :storage_key, :size, :receive_datetime, :is_read, :is_star
+			:reply_to_address, :storage_key, :size, :receive_datetime, :is_read, :is_star,
+			:is_deleted, :is_outbound, :is_quarantined, :sending_address_id
 		)
 	`, email)
+	return err
+}
+
+func (db *DB) UpdateEmailQuarantineStatus(ctx context.Context, id uuid.UUID, isQuarantined bool) error {
+	_, err := db.ExecContext(ctx, "UPDATE email SET is_quarantined = $1, update_datetime = CURRENT_TIMESTAMP WHERE id = $2", isQuarantined, id)
 	return err
 }
 

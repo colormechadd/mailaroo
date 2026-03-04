@@ -163,12 +163,22 @@ func Notify(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatu
 	return StatusPass, nil, nil
 }
 
+// Finalize sets the quarantine flag to false once all checks pass
+func Finalize(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error) {
+	if err := p.db.UpdateEmailQuarantineStatus(ctx, ictx.EmailID, false); err != nil {
+		return StatusError, nil, err
+	}
+
+	return StatusPass, nil, nil
+}
+
 // Deliver handles both storage and database persistence in one logical step
 func Deliver(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error) {
 	email, err := p.mail.Persist(ctx, mail.PersistOptions{
 		MailboxID:        ictx.TargetMailboxID,
 		RawMessage:       ictx.RawMessage,
 		IsOutbound:       false,
+		IsQuarantined:    true,
 		UserID:           ictx.UserID,
 		IngestionID:      &ictx.ID,
 		AddressMappingID: &ictx.AddressMappingID,
@@ -178,6 +188,7 @@ func Deliver(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStat
 	}
 
 	ictx.StorageKey = email.StorageKey
+	ictx.EmailID = email.ID
 
 	return StatusPass, map[string]any{
 		"email_id":    email.ID,
