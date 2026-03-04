@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -116,3 +117,72 @@ func LoadConfig() (*Config, error) {
 
 	return &cfg, nil
 }
+
+func BindFlags(fs *pflag.FlagSet) {
+	fs.String("database-url", "", "Database connection URL")
+	viper.BindPFlag("DATABASE_URL", fs.Lookup("database-url"))
+
+	fs.Int("web-port", 8080, "Web server port")
+	viper.BindPFlag("WEB_PORT", fs.Lookup("web-port"))
+
+	fs.String("log-level", "info", "Log level (debug, info, warn, error)")
+	viper.BindPFlag("LOG.LEVEL", fs.Lookup("log-level"))
+
+	fs.String("log-format", "text", "Log format (text, json)")
+	viper.BindPFlag("LOG.FORMAT", fs.Lookup("log-format"))
+
+	fs.StringSlice("spam-rbl-servers", []string{"zen.spamhaus.org"}, "Spam RBL servers")
+	viper.BindPFlag("SPAM.RBL_SERVERS", fs.Lookup("spam-rbl-servers"))
+
+	fs.IntSlice("smtp-ports", []int{25, 587, 465, 2525}, "SMTP ports to listen on")
+	viper.BindPFlag("SMTP.PORTS", fs.Lookup("smtp-ports"))
+
+	fs.String("smtp-domain", "localhost", "SMTP domain name")
+	viper.BindPFlag("SMTP.DOMAIN", fs.Lookup("smtp-domain"))
+
+	fs.Duration("smtp-read-timeout", 10*time.Second, "SMTP read timeout")
+	viper.BindPFlag("SMTP.READ_TIMEOUT", fs.Lookup("smtp-read-timeout"))
+
+	fs.Duration("smtp-write-timeout", 10*time.Second, "SMTP write timeout")
+	viper.BindPFlag("SMTP.WRITE_TIMEOUT", fs.Lookup("smtp-write-timeout"))
+
+	fs.Int64("smtp-max-message-size", 1024*1024*50, "SMTP max message size in bytes")
+	viper.BindPFlag("SMTP.MAX_MESSAGE_SIZE", fs.Lookup("smtp-max-message-size"))
+
+	fs.Int("smtp-max-recipients", 50, "SMTP max recipients per message")
+	viper.BindPFlag("SMTP.MAX_RECIPIENTS", fs.Lookup("smtp-max-recipients"))
+
+	fs.String("smtp-tls-cert-file", "", "SMTP TLS certificate file")
+	viper.BindPFlag("SMTP.TLS_CERT_FILE", fs.Lookup("smtp-tls-cert-file"))
+
+	fs.String("smtp-tls-key-file", "", "SMTP TLS key file")
+	viper.BindPFlag("SMTP.TLS_KEY_FILE", fs.Lookup("smtp-tls-key-file"))
+
+	fs.String("storage-type", "local", "Storage type (local, s3, gcs)")
+	viper.BindPFlag("STORAGE_TYPE", fs.Lookup("storage-type"))
+
+	fs.String("compression", "none", "Compression type (zstd, gzip, none)")
+	viper.BindPFlag("COMPRESSION", fs.Lookup("compression"))
+
+	fs.String("local-storage-base-path", "./data/emails", "Local storage base path")
+	viper.BindPFlag("LOCAL_STORAGE.BASE_PATH", fs.Lookup("local-storage-base-path"))
+
+	fs.String("s3-storage-bucket", "", "S3 storage bucket")
+	viper.BindPFlag("S3_STORAGE.BUCKET", fs.Lookup("s3-storage-bucket"))
+
+	fs.String("s3-storage-region", "", "S3 storage region")
+	viper.BindPFlag("S3_STORAGE.REGION", fs.Lookup("s3-storage-region"))
+
+	fs.String("s3-storage-endpoint", "", "S3 storage endpoint")
+	viper.BindPFlag("S3_STORAGE.ENDPOINT", fs.Lookup("s3-storage-endpoint"))
+
+	fs.String("s3-storage-prefix", "", "S3 storage prefix")
+	viper.BindPFlag("S3_STORAGE.PREFIX", fs.Lookup("s3-storage-prefix"))
+
+	fs.String("gcs-storage-bucket", "", "GCS storage bucket")
+	viper.BindPFlag("GCS_STORAGE.BUCKET", fs.Lookup("gcs-storage-bucket"))
+
+	fs.String("gcs-storage-prefix", "", "GCS storage prefix")
+	viper.BindPFlag("GCS_STORAGE.PREFIX", fs.Lookup("gcs-storage-prefix"))
+}
+

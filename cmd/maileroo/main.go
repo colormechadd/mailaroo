@@ -26,6 +26,10 @@ var (
 	cfg *config.Config
 )
 
+func init() {
+	config.BindFlags(rootCmd.PersistentFlags())
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "maileroo",
 	Short: "Maileroo is an all-in-one email platform",
