@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/colormechadd/maileroo/internal/mail"
+	"github.com/colormechadd/maileroo/pkg/models"
 	"github.com/emersion/go-msgauth/dkim"
 	"github.com/emersion/go-msgauth/dmarc"
 	"github.com/zaccone/spf"
@@ -163,9 +164,9 @@ func Notify(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatu
 	return StatusPass, nil, nil
 }
 
-// Finalize sets the quarantine flag to false once all checks pass
+// Finalize sets the status to INBOX once all checks pass
 func Finalize(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error) {
-	if err := p.db.UpdateEmailQuarantineStatus(ctx, ictx.EmailID, false); err != nil {
+	if err := p.db.SetEmailStatus(ctx, ictx.EmailID, models.StatusInbox); err != nil {
 		return StatusError, nil, err
 	}
 

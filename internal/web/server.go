@@ -427,7 +427,12 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.MarkEmailDeleted(r.Context(), emailID, user.ID, !email.IsDeleted); err != nil {
+	targetStatus := models.StatusDeleted
+	if email.Status == models.StatusDeleted {
+		targetStatus = models.StatusInbox
+	}
+
+	if err := s.db.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
 		slog.Error("failed to toggle delete", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
@@ -455,7 +460,7 @@ func (s *Server) handleEmailRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.MarkEmailQuarantined(r.Context(), emailID, user.ID, false); err != nil {
+	if err := s.db.UpdateEmailStatus(r.Context(), emailID, user.ID, models.StatusInbox); err != nil {
 		slog.Error("failed to release email", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return

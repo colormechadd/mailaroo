@@ -198,9 +198,9 @@ var mappingAddCmd = &cobra.Command{
 }
 
 var saAddCmd = &cobra.Command{
-	Use:   "add [username] [address]",
+	Use:   "add [username] [mailbox_id] [address]",
 	Short: "Add an authorized sending address for a user",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		database, err := db.Connect(cfg.DatabaseURL)
 		if err != nil {
@@ -213,11 +213,17 @@ var saAddCmd = &cobra.Command{
 			log.Fatalf("failed to find user %s: %v", args[0], err)
 		}
 
+		mbID, err := uuid.Parse(args[1])
+		if err != nil {
+			log.Fatalf("invalid mailbox ID: %v", err)
+		}
+
 		sa := &models.SendingAddress{
-			ID:       uuid.New(),
-			UserID:   user.ID,
-			Address:  args[1],
-			IsActive: true,
+			ID:        uuid.New(),
+			UserID:    user.ID,
+			MailboxID: mbID,
+			Address:   args[2],
+			IsActive:  true,
 		}
 
 		if err := database.AddSendingAddress(context.Background(), sa); err != nil {

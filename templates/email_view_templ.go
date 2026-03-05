@@ -41,7 +41,7 @@ func EmailDetail(email *models.Email, attachments []models.EmailAttachment, body
 		}
 
 		deleteTitle := "Delete"
-		if email.IsDeleted {
+		if email.Status == models.StatusDeleted {
 			deleteTitle = "Restore"
 		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex-1 flex flex-col h-full bg-white overflow-hidden animate-in fade-in duration-300\"><header class=\"px-8 py-6 border-b border-purple-100 flex flex-col space-y-6\"><div class=\"flex items-center justify-between\"><div class=\"flex-1 min-w-0\"><h1 class=\"text-2xl font-bold text-gray-900 leading-tight break-words\">")
@@ -159,7 +159,7 @@ func EmailDetail(email *models.Email, attachments []models.EmailAttachment, body
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if email.IsDeleted {
+		if email.Status == models.StatusDeleted {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M3 10h10a8 8 0 018 8v2M3 10l5 5m-5-5l5-5\"></path>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -187,7 +187,7 @@ func EmailDetail(email *models.Email, attachments []models.EmailAttachment, body
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if email.IsQuarantined {
+		if email.Status == models.StatusQuarantined {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<button class=\"text-xs font-bold uppercase tracking-widest text-teal-600 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

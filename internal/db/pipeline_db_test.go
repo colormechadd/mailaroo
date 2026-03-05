@@ -58,6 +58,8 @@ func TestPipelineDB(t *testing.T) {
 			StorageKey:      "key",
 			Size:            100,
 			ReceiveDatetime: time.Now(),
+			Direction:       models.DirectionInbound,
+			Status:          models.StatusInbox,
 		}
 		err = db.CreateEmail(ctx, email)
 		assert.NoError(t, err)

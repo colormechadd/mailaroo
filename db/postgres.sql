@@ -15,6 +15,28 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+--
+-- Name: email_direction; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.email_direction AS ENUM (
+    'INBOUND',
+    'OUTBOUND'
+);
+
+
+--
+-- Name: email_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.email_status AS ENUM (
+    'QUARANTINED',
+    'DELETED',
+    'INBOX',
+    'ARCHIVED'
+);
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -42,28 +64,27 @@ CREATE TABLE public.email (
     id uuid DEFAULT uuidv7() NOT NULL,
     mailbox_id uuid NOT NULL,
     address_mapping_id uuid,
+    ingestion_id uuid,
+    thread_id uuid,
+    sending_address_id uuid,
     message_id text NOT NULL,
     subject text,
     from_address text NOT NULL,
     to_address text NOT NULL,
     reply_to_address text,
+    in_reply_to text,
+    "references" text,
     storage_key text NOT NULL,
     size bigint NOT NULL,
     receive_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    is_read boolean DEFAULT false,
-    is_star boolean DEFAULT false,
-    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    ingestion_id uuid,
-    thread_id uuid,
-    in_reply_to text,
-    "references" text,
-    is_deleted boolean DEFAULT false,
     read_datetime timestamp with time zone,
     star_datetime timestamp with time zone,
-    is_outbound boolean DEFAULT false,
-    sending_address_id uuid,
-    is_quarantined boolean DEFAULT false
+    is_read boolean DEFAULT false,
+    is_star boolean DEFAULT false,
+    direction public.email_direction NOT NULL,
+    status public.email_status DEFAULT 'INBOX'::public.email_status NOT NULL,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -154,12 +175,12 @@ CREATE TABLE public.schema_migrations (
 --
 
 CREATE TABLE public.sending_address (
-    id uuid NOT NULL,
+    id uuid DEFAULT uuidv7() NOT NULL,
     user_id uuid NOT NULL,
+    mailbox_id uuid NOT NULL,
     address text NOT NULL,
     is_active boolean DEFAULT true,
-    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    mailbox_id uuid NOT NULL
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -340,31 +361,17 @@ CREATE INDEX idx_email_address_mapping_id ON public.email USING btree (address_m
 
 
 --
+-- Name: idx_email_direction; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_direction ON public.email USING btree (direction);
+
+
+--
 -- Name: idx_email_ingestion_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_email_ingestion_id ON public.email USING btree (ingestion_id);
-
-
---
--- Name: idx_email_is_deleted; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_email_is_deleted ON public.email USING btree (is_deleted);
-
-
---
--- Name: idx_email_is_outbound; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_email_is_outbound ON public.email USING btree (is_outbound);
-
-
---
--- Name: idx_email_is_quarantined; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_email_is_quarantined ON public.email USING btree (is_quarantined) WHERE (is_quarantined = true);
 
 
 --
@@ -407,6 +414,13 @@ CREATE INDEX idx_email_receive_datetime ON public.email USING btree (receive_dat
 --
 
 CREATE INDEX idx_email_sending_address_id ON public.email USING btree (sending_address_id);
+
+
+--
+-- Name: idx_email_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_status ON public.email USING btree (status);
 
 
 --
@@ -575,14 +589,4 @@ ALTER TABLE ONLY public.webmail_session
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20260228210153'),
-    ('20260228213208'),
-    ('20260228215437'),
-    ('20260228220017'),
-    ('20260228222916'),
-    ('20260301174808'),
-    ('20260302040218'),
-    ('20260302042724'),
-    ('20260302043417'),
-    ('20260302044323'),
-    ('20260302050000');
+    ('20260228000000');

@@ -112,7 +112,7 @@ func TestDeliver(t *testing.T) {
 		
 		// Mock DB email creation
 		mockDB.On("CreateEmail", mock.Anything, mock.MatchedBy(func(e *models.Email) bool {
-			return e.IsQuarantined == true
+			return e.Status == models.StatusQuarantined && e.Direction == models.DirectionInbound
 		})).Return(nil).Once()
 
 		status, _, err := Deliver(ctx, p, ictx)
@@ -137,7 +137,7 @@ func TestFinalize(t *testing.T) {
 	}
 
 	t.Run("successful finalize", func(t *testing.T) {
-		mockDB.On("UpdateEmailQuarantineStatus", mock.Anything, emailID, false).Return(nil).Once()
+		mockDB.On("SetEmailStatus", mock.Anything, emailID, models.StatusInbox).Return(nil).Once()
 		status, _, err := Finalize(ctx, p, ictx)
 		assert.NoError(t, err)
 		assert.Equal(t, StatusPass, status)

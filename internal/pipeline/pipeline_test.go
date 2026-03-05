@@ -50,13 +50,13 @@ func TestProcess_Success(t *testing.T) {
 	mockDB.On("FindThreadIDByMessageIDs", mock.Anything, mock.Anything, mock.Anything).Return(uuid.Nil, nil).Once()
 	mockDB.On("CreateThread", mock.Anything, mock.Anything).Return(nil).Once()
 	mockDB.On("CreateEmail", mock.Anything, mock.MatchedBy(func(e *models.Email) bool {
-		return e.IsQuarantined == true
+		return e.Status == models.StatusQuarantined && e.Direction == models.DirectionInbound
 	})).Return(nil).Once()
 	mockDB.On("CreateIngestionStep", mock.Anything, mock.MatchedBy(func(s *models.IngestionStep) bool {
 		return s.StepName == "deliver" && s.Status == "pass"
 	})).Return(nil).Once()
 
-	mockDB.On("UpdateEmailQuarantineStatus", mock.Anything, mock.Anything, false).Return(nil).Once()
+	mockDB.On("SetEmailStatus", mock.Anything, mock.Anything, models.StatusInbox).Return(nil).Once()
 	mockDB.On("CreateIngestionStep", mock.Anything, mock.MatchedBy(func(s *models.IngestionStep) bool {
 		return s.StepName == "finalize" && s.Status == "pass"
 	})).Return(nil).Once()
@@ -118,7 +118,7 @@ func TestProcess_FailureLeavesQuarantined(t *testing.T) {
 	mockDB.On("FindThreadIDByMessageIDs", mock.Anything, mock.Anything, mock.Anything).Return(uuid.Nil, nil).Once()
 	mockDB.On("CreateThread", mock.Anything, mock.Anything).Return(nil).Once()
 	mockDB.On("CreateEmail", mock.Anything, mock.MatchedBy(func(e *models.Email) bool {
-		return e.IsQuarantined == true
+		return e.Status == models.StatusQuarantined && e.Direction == models.DirectionInbound
 	})).Return(nil).Once()
 	mockDB.On("CreateIngestionStep", mock.Anything, mock.MatchedBy(func(s *models.IngestionStep) bool {
 		return s.StepName == "deliver"

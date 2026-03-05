@@ -148,8 +148,15 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 		ReceiveDatetime:  time.Now(),
 		IsRead:           opts.IsOutbound, // Sent mail is read
 		IsStar:           false,
-		IsOutbound:       opts.IsOutbound,
-		IsQuarantined:    opts.IsQuarantined,
+		Direction:        models.DirectionInbound,
+		Status:           models.StatusInbox,
+	}
+
+	if opts.IsOutbound {
+		email.Direction = models.DirectionOutbound
+	}
+	if opts.IsQuarantined {
+		email.Status = models.StatusQuarantined
 	}
 
 	if opts.InReplyTo != "" {

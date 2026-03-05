@@ -38,8 +38,8 @@ func (m *MockDB) CreateEmail(ctx context.Context, email *models.Email) error {
 	return args.Error(0)
 }
 
-func (m *MockDB) UpdateEmailQuarantineStatus(ctx context.Context, id uuid.UUID, isQuarantined bool) error {
-	args := m.Called(ctx, id, isQuarantined)
+func (m *MockDB) SetEmailStatus(ctx context.Context, id uuid.UUID, status models.EmailStatus) error {
+	args := m.Called(ctx, id, status)
 	return args.Error(0)
 }
 

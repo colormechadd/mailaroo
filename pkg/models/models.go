@@ -68,6 +68,22 @@ type IngestionStep struct {
 	DurationMS  int             `db:"duration_ms" json:"duration_ms"`
 }
 
+type EmailDirection string
+
+const (
+	DirectionInbound  EmailDirection = "INBOUND"
+	DirectionOutbound EmailDirection = "OUTBOUND"
+)
+
+type EmailStatus string
+
+const (
+	StatusQuarantined EmailStatus = "QUARANTINED"
+	StatusDeleted     EmailStatus = "DELETED"
+	StatusInbox       EmailStatus = "INBOX"
+	StatusArchived    EmailStatus = "ARCHIVED"
+)
+
 type Email struct {
 	ID               uuid.UUID  `db:"id" json:"id"`
 	MailboxID        uuid.UUID  `db:"mailbox_id" json:"mailbox_id"`
@@ -86,9 +102,8 @@ type Email struct {
 	ReceiveDatetime  time.Time  `db:"receive_datetime" json:"receive_datetime"`
 	IsRead           bool       `db:"is_read" json:"is_read"`
 	IsStar           bool       `db:"is_star" json:"is_star"`
-	IsDeleted        bool       `db:"is_deleted" json:"is_deleted"`
-	IsOutbound       bool       `db:"is_outbound" json:"is_outbound"`
-	IsQuarantined    bool       `db:"is_quarantined" json:"is_quarantined"`
+	Direction        EmailDirection `db:"direction" json:"direction"`
+	Status           EmailStatus    `db:"status" json:"status"`
 	SendingAddressID *uuid.UUID `db:"sending_address_id" json:"sending_address_id"`
 }
 

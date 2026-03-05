@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/colormechadd/maileroo/pkg/auth"
 	"github.com/colormechadd/maileroo/pkg/models"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,6 +46,26 @@ func setupCLITestDB(t *testing.T) (*db.DB, func()) {
 		}
 	}
 
+	// 1. Create the test database if it doesn't exist
+	adminURL := strings.Replace(testURL, "/maileroo_test?", "/postgres?", 1)
+	adminDB, err := sqlx.Connect("postgres", adminURL)
+	if err != nil {
+		t.Fatalf("failed to connect to postgres for test db creation: %v", err)
+	}
+	_, _ = adminDB.Exec("DROP DATABASE IF EXISTS maileroo_test")
+	_, err = adminDB.Exec("CREATE DATABASE maileroo_test")
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+	adminDB.Close()
+
+	// 2. Run migrations using dbmate
+	cmd := exec.Command("dbmate", "-u", testURL, "--no-dump-schema", "up")
+	cmd.Dir = "../../" 
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("dbmate migration failed: %v\nOutput: %s", err, string(out))
+	}
+
 	os.Setenv("MAILEROO_DATABASE_URL", testURL)
 	os.Setenv("DATABASE_URL", testURL)
 
@@ -50,10 +73,6 @@ func setupCLITestDB(t *testing.T) (*db.DB, func()) {
 	if err != nil {
 		t.Fatalf("failed to connect to test db: %v", err)
 	}
-
-	// Clean tables
-	ctx := context.Background()
-	_, _ = database.ExecContext(ctx, `TRUNCATE "user" CASCADE`)
 
 	// Re-load config
 	cfg, _ = config.LoadConfig()
@@ -153,7 +172,12 @@ func TestAdminSendingAddressCommands(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("sending-address add", func(t *testing.T) {
-		output, err := executeCommand("admin", "sending-address", "add", "sauser", "me@example.com")
+		// First create a mailbox
+		mbID := uuid.New()
+		err := database.CreateMailbox(ctx, &models.Mailbox{ID: mbID, UserID: user.ID, Name: "Inbox"})
+		assert.NoError(t, err)
+
+		output, err := executeCommand("admin", "sending-address", "add", "sauser", mbID.String(), "me@example.com")
 		assert.NoError(t, err)
 		assert.Contains(t, output, "Sending address me@example.com added")
 
