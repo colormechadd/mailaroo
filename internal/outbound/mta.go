@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/emersion/go-message/mail"
+	"github.com/google/uuid"
 )
 
 type Attachment struct {
@@ -70,6 +71,11 @@ func (m *MTA) SendMessage(msg Message) ([]byte, error) {
 
 	h.SetSubject(msg.Subject)
 	h.SetDate(time.Now())
+	msgIDHost := m.hostname
+	if parts := strings.SplitN(msg.From, "@", 2); len(parts) == 2 {
+		msgIDHost = parts[1]
+	}
+	h.Set("Message-ID", fmt.Sprintf("<%s@%s>", uuid.Must(uuid.NewV7()).String(), msgIDHost))
 	h.Set("MIME-Version", "1.0")
 
 	if msg.InReplyTo != "" {
