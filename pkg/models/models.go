@@ -107,6 +107,14 @@ type Email struct {
 	SendingAddressID *uuid.UUID `db:"sending_address_id" json:"sending_address_id"`
 }
 
+type DKIMKey struct {
+	ID       uuid.UUID `db:"id" json:"id"`
+	Domain   string    `db:"domain" json:"domain"`
+	Selector string    `db:"selector" json:"selector"`
+	KeyData  []byte    `db:"key_data" json:"-"`
+	IsActive bool      `db:"is_active" json:"is_active"`
+}
+
 type EmailAttachment struct {
 	ID          uuid.UUID `db:"id" json:"id"`
 	EmailID     uuid.UUID `db:"email_id" json:"email_id"`

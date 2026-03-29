@@ -41,13 +41,14 @@ type Sender interface {
 
 type MTA struct {
 	hostname string
+	dkim     *DKIMSigner
 }
 
-func NewMTA(hostname string) *MTA {
+func NewMTA(hostname string, dkim *DKIMSigner) *MTA {
 	if hostname == "" {
 		hostname = "localhost"
 	}
-	return &MTA{hostname: hostname}
+	return &MTA{hostname: hostname, dkim: dkim}
 }
 
 func (m *MTA) SendMessage(msg Message) ([]byte, error) {
@@ -133,7 +134,22 @@ func (m *MTA) SendMessage(msg Message) ([]byte, error) {
 	mw.Close()
 
 	raw := buf.Bytes()
-	
+
+	if m.dkim != nil {
+		domain := ""
+		if parts := strings.SplitN(msg.From, "@", 2); len(parts) == 2 {
+			domain = parts[1]
+		}
+		if domain != "" {
+			signed, err := m.dkim.Sign(domain, raw)
+			if err != nil {
+				slog.Warn("dkim signing failed, sending unsigned", "domain", domain, "error", err)
+			} else {
+				raw = signed
+			}
+		}
+	}
+
 	// Collect all recipients for SMTP delivery (To + Cc + Bcc)
 	allRecipients := append([]string{}, msg.To...)
 	allRecipients = append(allRecipients, msg.Cc...)

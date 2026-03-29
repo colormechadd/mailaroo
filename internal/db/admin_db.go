@@ -16,10 +16,15 @@ type AdminDB interface {
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
 	DeleteMailbox(ctx context.Context, mailboxID uuid.UUID) error
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	
+
 	AddSendingAddress(ctx context.Context, sa *models.SendingAddress) error
 	ListSendingAddresses(ctx context.Context, userID uuid.UUID) ([]models.SendingAddress, error)
 	DeactivateSendingAddress(ctx context.Context, saID uuid.UUID) error
+
+	InsertDKIMKey(ctx context.Context, key *models.DKIMKey) error
+	GetActiveDKIMKey(ctx context.Context, domain string, selector *string) (*models.DKIMKey, error)
+	ListDKIMKeys(ctx context.Context) ([]models.DKIMKey, error)
+	UpdateDKIMKeyData(ctx context.Context, id uuid.UUID, keyData []byte) error
 }
 
 func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
@@ -98,4 +103,48 @@ func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.U
 	var user models.User
 	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active FROM "user" WHERE username = $1`, username)
 	return &user, err
+}
+
+func (db *DB) InsertDKIMKey(ctx context.Context, key *models.DKIMKey) error {
+	_, err := db.ExecContext(ctx,
+		"INSERT INTO dkim_key (id, domain, selector, key_data, is_active) VALUES ($1, $2, $3, $4, $5)",
+		key.ID, key.Domain, key.Selector, key.KeyData, key.IsActive,
+	)
+	return err
+}
+
+func (db *DB) GetActiveDKIMKey(ctx context.Context, domain string, selector *string) (*models.DKIMKey, error) {
+	var key models.DKIMKey
+	var err error
+	if selector != nil {
+		err = db.GetContext(ctx, &key,
+			"SELECT id, domain, selector, key_data, is_active FROM dkim_key WHERE domain = $1 AND selector = $2 AND is_active = TRUE",
+			domain, *selector,
+		)
+	} else {
+		err = db.GetContext(ctx, &key,
+			"SELECT id, domain, selector, key_data, is_active FROM dkim_key WHERE domain = $1 AND is_active = TRUE ORDER BY create_datetime DESC LIMIT 1",
+			domain,
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
+func (db *DB) ListDKIMKeys(ctx context.Context) ([]models.DKIMKey, error) {
+	var keys []models.DKIMKey
+	err := db.SelectContext(ctx, &keys,
+		"SELECT id, domain, selector, key_data, is_active FROM dkim_key ORDER BY domain ASC",
+	)
+	return keys, err
+}
+
+func (db *DB) UpdateDKIMKeyData(ctx context.Context, id uuid.UUID, keyData []byte) error {
+	_, err := db.ExecContext(ctx,
+		"UPDATE dkim_key SET key_data = $1, update_datetime = NOW() WHERE id = $2",
+		keyData, id,
+	)
+	return err
 }

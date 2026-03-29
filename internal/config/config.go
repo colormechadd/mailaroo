@@ -54,6 +54,10 @@ type Config struct {
 	StorageType string `mapstructure:"STORAGE_TYPE"` // "local", "s3", "gcs"
 	Compression string `mapstructure:"COMPRESSION"`  // "zstd", "gzip", "none"
 
+	DKIM struct {
+		EncryptionKey string `mapstructure:"ENCRYPTION_KEY"`
+	} `mapstructure:"DKIM"`
+
 	LocalStorage LocalStorageConfig `mapstructure:"LOCAL_STORAGE"`
 	S3Storage    S3StorageConfig    `mapstructure:"S3_STORAGE"`
 	GCSStorage   GCSStorageConfig   `mapstructure:"GCS_STORAGE"`
@@ -71,6 +75,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("SMTP.WRITE_TIMEOUT", 10*time.Second)
 	viper.SetDefault("SMTP.MAX_MESSAGE_SIZE", 1024*1024*50) // 50MB
 	viper.SetDefault("SMTP.MAX_RECIPIENTS", 50)
+
+	viper.SetDefault("DKIM.ENCRYPTION_KEY", "")
 
 	viper.SetDefault("STORAGE_TYPE", "local")
 	viper.SetDefault("COMPRESSION", "none")
@@ -157,6 +163,9 @@ func BindFlags(fs *pflag.FlagSet) {
 
 	fs.String("smtp-tls-key-file", "", "SMTP TLS key file")
 	viper.BindPFlag("SMTP.TLS_KEY_FILE", fs.Lookup("smtp-tls-key-file"))
+
+	fs.String("dkim-encryption-key", "", "Base64-encoded 32-byte AES-256 key for encrypting DKIM private keys")
+	viper.BindPFlag("DKIM.ENCRYPTION_KEY", fs.Lookup("dkim-encryption-key"))
 
 	fs.String("storage-type", "local", "Storage type (local, s3, gcs)")
 	viper.BindPFlag("STORAGE_TYPE", fs.Lookup("storage-type"))

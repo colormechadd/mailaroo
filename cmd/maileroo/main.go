@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 
+	"encoding/base64"
+
 	"github.com/colormechadd/maileroo/internal/config"
 	"github.com/colormechadd/maileroo/internal/db"
 	"github.com/colormechadd/maileroo/internal/mail"
@@ -95,7 +97,16 @@ func runServe() {
 	ingestionPipeline := pipeline.NewPipeline(cfg, database, store, hub, mailSvc)
 
 	// Initialize MTA
-	mta := outbound.NewMTA(cfg.SMTP.Domain)
+	var dkimSigner *outbound.DKIMSigner
+	if cfg.DKIM.EncryptionKey != "" {
+		encKey, err := base64.StdEncoding.DecodeString(cfg.DKIM.EncryptionKey)
+		if err != nil || len(encKey) != 32 {
+			slog.Error("MAILEROO_DKIM_ENCRYPTION_KEY must be a base64-encoded 32-byte value")
+			os.Exit(1)
+		}
+		dkimSigner = outbound.NewDKIMSigner(database, encKey)
+	}
+	mta := outbound.NewMTA(cfg.SMTP.Domain, dkimSigner)
 
 	// Start SMTP servers
 	smtpServers, err := smtp.StartServers(cfg.SMTP, database, ingestionPipeline)
