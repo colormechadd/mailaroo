@@ -68,12 +68,16 @@ func (s *Server) Routes() chi.Router {
 		r.Get("/", s.handleDashboard)
 		r.Get("/events", s.handleEvents)
 		r.Get("/mailbox/{mailboxID}", s.handleMailboxView)
-		r.Get("/email/{emailID}", s.handleEmailView)
-		r.Get("/email/{emailID}/headers", s.handleEmailHeaders)
-		r.Get("/email/{emailID}/pipeline", s.handleEmailPipeline)
-		r.Post("/email/{emailID}/star", s.handleEmailStar)
-		r.Post("/email/{emailID}/delete", s.handleEmailDelete)
-		r.Post("/email/{emailID}/release", s.handleEmailRelease)
+		r.Group(func(r chi.Router) {
+			r.Use(s.validateUserAccessToEmailID)
+
+			r.Get("/email/{emailID}", s.handleEmailView)
+			r.Get("/email/{emailID}/headers", s.handleEmailHeaders)
+			r.Get("/email/{emailID}/pipeline", s.handleEmailPipeline)
+			r.Post("/email/{emailID}/star", s.handleEmailStar)
+			r.Post("/email/{emailID}/delete", s.handleEmailDelete)
+			r.Post("/email/{emailID}/release", s.handleEmailRelease)
+		})
 		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
 
 		r.Get("/compose", s.handleCompose)
@@ -184,6 +188,22 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 
 	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
 	s.render(w, r, user, mailboxes, uuid.Nil, "all", templates.Compose(addresses, fromID, to, cc, bcc, subject, inReplyTo, references, title, body, bodyHTML))
+}
+
+func (s *Server) validateUserAccessToEmailID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*models.User)
+		emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+		if err != nil {
+			http.Error(w, "Invalid ID", http.StatusBadRequest)
+			return
+		}
+		if _, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID); err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
@@ -368,6 +388,18 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	owned := false
+	for _, mb := range mailboxes {
+		if mb.ID == mailboxID {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -691,8 +723,8 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 
 	att, err := s.db.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
 	if err != nil {
-		slog.Error("attachment not found", "att_id", attID, "user_id", user.ID, "error", err)
-		http.Error(w, "Not found", http.StatusNotFound)
+		slog.Error("attachment not found or forbidden", "att_id", attID, "user_id", user.ID, "error", err)
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
