@@ -37,6 +37,7 @@ type Message struct {
 type Sender interface {
 	Send(from string, to []string, msg []byte) error
 	SendMessage(msg Message) ([]byte, error)
+	BuildMessage(msg Message) (rawBytes []byte, from string, recipients []string, err error)
 }
 
 type MTA struct {
@@ -51,7 +52,7 @@ func NewMTA(hostname string, dkim *DKIMSigner) *MTA {
 	return &MTA{hostname: hostname, dkim: dkim}
 }
 
-func (m *MTA) SendMessage(msg Message) ([]byte, error) {
+func (m *MTA) BuildMessage(msg Message) (rawBytes []byte, from string, recipients []string, err error) {
 	var buf bytes.Buffer
 	var h mail.Header
 	h.SetAddressList("From", []*mail.Address{{Address: msg.From}})
@@ -88,16 +89,15 @@ func (m *MTA) SendMessage(msg Message) ([]byte, error) {
 
 	mw, err := mail.CreateWriter(&buf, h)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create mail writer: %w", err)
+		return nil, "", nil, fmt.Errorf("failed to create mail writer: %w", err)
 	}
 
-	// Create body part
 	if msg.HTMLBody != "" {
 		var hh mail.InlineHeader
 		hh.Set("Content-Type", "text/html; charset=utf-8")
 		hw, err := mw.CreateSingleInline(hh)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create html part: %w", err)
+			return nil, "", nil, fmt.Errorf("failed to create html part: %w", err)
 		}
 		io.WriteString(hw, msg.HTMLBody)
 		hw.Close()
@@ -106,13 +106,12 @@ func (m *MTA) SendMessage(msg Message) ([]byte, error) {
 		th.Set("Content-Type", "text/plain; charset=utf-8")
 		tw, err := mw.CreateSingleInline(th)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create text part: %w", err)
+			return nil, "", nil, fmt.Errorf("failed to create text part: %w", err)
 		}
 		io.WriteString(tw, msg.TextBody)
 		tw.Close()
 	}
 
-	// Attachments
 	for _, att := range msg.Attachments {
 		var ah mail.AttachmentHeader
 		ah.SetFilename(att.Filename)
@@ -121,7 +120,6 @@ func (m *MTA) SendMessage(msg Message) ([]byte, error) {
 		} else {
 			ah.Set("Content-Type", "application/octet-stream")
 		}
-
 		aw, err := mw.CreateAttachment(ah)
 		if err != nil {
 			slog.Error("failed to create attachment part", "filename", att.Filename, "error", err)
@@ -150,15 +148,21 @@ func (m *MTA) SendMessage(msg Message) ([]byte, error) {
 		}
 	}
 
-	// Collect all recipients for SMTP delivery (To + Cc + Bcc)
 	allRecipients := append([]string{}, msg.To...)
 	allRecipients = append(allRecipients, msg.Cc...)
 	allRecipients = append(allRecipients, msg.Bcc...)
 
-	if err := m.Send(msg.From, allRecipients, raw); err != nil {
+	return raw, msg.From, allRecipients, nil
+}
+
+func (m *MTA) SendMessage(msg Message) ([]byte, error) {
+	raw, from, recipients, err := m.BuildMessage(msg)
+	if err != nil {
 		return nil, err
 	}
-
+	if err := m.Send(from, recipients, raw); err != nil {
+		return nil, err
+	}
 	return raw, nil
 }
 

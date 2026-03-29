@@ -123,3 +123,27 @@ type EmailAttachment struct {
 	Size        int64     `db:"size" json:"size"`
 	StorageKey  string    `db:"storage_key" json:"storage_key"`
 }
+
+type OutboundStatus string
+
+const (
+	OutboundQueued    OutboundStatus = "QUEUED"
+	OutboundSending   OutboundStatus = "SENDING"
+	OutboundDelivered OutboundStatus = "DELIVERED"
+	OutboundDeferred  OutboundStatus = "DEFERRED"
+	OutboundFailed    OutboundStatus = "FAILED"
+)
+
+type OutboundJob struct {
+	ID                  uuid.UUID      `db:"id"`
+	EmailID             *uuid.UUID     `db:"email_id"`
+	FromAddress         string         `db:"from_address"`
+	Recipients          []string       `db:"recipients"`
+	RawMessage          []byte         `db:"raw_message"`
+	Status              OutboundStatus `db:"status"`
+	AttemptCount        int            `db:"attempt_count"`
+	MaxAttempts         int            `db:"max_attempts"`
+	LastError           *string        `db:"last_error"`
+	NextAttemptDatetime time.Time      `db:"next_attempt_datetime"`
+	DeliveryDatetime    *time.Time     `db:"delivery_datetime"`
+}

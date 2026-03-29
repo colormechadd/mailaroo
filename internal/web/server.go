@@ -248,30 +248,33 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rawBytes, err := s.sender.SendMessage(outMsg)
+	rawBytes, from, recipients, err := s.sender.BuildMessage(outMsg)
 	if err != nil {
-		slog.Error("failed to send email via MTA", "user_id", user.ID, "error", err)
-		http.Error(w, "Failed to send email", http.StatusInternalServerError)
+		slog.Error("failed to build outbound message", "user_id", user.ID, "error", err)
+		http.Error(w, "Failed to build email", http.StatusInternalServerError)
 		return
 	}
 
-	// Persist to the mailbox associated with the sending address
-	go func() {
-		_, err := s.mail.Persist(context.Background(), mail.PersistOptions{
-			MailboxID:        sa.MailboxID,
-			RawMessage:       rawBytes,
-			IsOutbound:       true,
-			UserID:           user.ID,
-			SendingAddressID: &sa.ID,
-			InReplyTo:        inReplyTo,
-			References:       references,
-			Cc:               ccRaw,
-			Bcc:              bccRaw,
-		})
-		if err != nil {
-			slog.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
-		}
-	}()
+	email, err := s.mail.Persist(r.Context(), mail.PersistOptions{
+		MailboxID:        sa.MailboxID,
+		RawMessage:       rawBytes,
+		IsOutbound:       true,
+		UserID:           user.ID,
+		SendingAddressID: &sa.ID,
+		InReplyTo:        inReplyTo,
+		References:       references,
+		Cc:               ccRaw,
+		Bcc:              bccRaw,
+	})
+	if err != nil {
+		slog.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
+		http.Error(w, "Failed to save email", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := s.db.InsertOutboundJob(r.Context(), &email.ID, from, recipients, rawBytes); err != nil {
+		slog.Error("failed to enqueue outbound job", "user_id", user.ID, "email_id", email.ID, "error", err)
+	}
 
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Location", "/mailbox/"+sa.MailboxID.String()+"?filter=sent")

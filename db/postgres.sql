@@ -37,6 +37,19 @@ CREATE TYPE public.email_status AS ENUM (
 );
 
 
+--
+-- Name: outbound_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.outbound_status AS ENUM (
+    'QUEUED',
+    'SENDING',
+    'DELIVERED',
+    'DEFERRED',
+    'FAILED'
+);
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -177,6 +190,27 @@ CREATE TABLE public.mailbox_block_rule (
 
 
 --
+-- Name: outbound_job; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.outbound_job (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    email_id uuid,
+    from_address text NOT NULL,
+    recipients jsonb NOT NULL,
+    raw_message bytea NOT NULL,
+    status public.outbound_status DEFAULT 'QUEUED'::public.outbound_status NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    max_attempts integer DEFAULT 5 NOT NULL,
+    last_error text,
+    next_attempt_datetime timestamp with time zone DEFAULT now() NOT NULL,
+    delivery_datetime timestamp with time zone,
+    create_datetime timestamp with time zone DEFAULT now(),
+    update_datetime timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -311,6 +345,14 @@ ALTER TABLE ONLY public.mailbox_block_rule
 
 ALTER TABLE ONLY public.mailbox
     ADD CONSTRAINT mailbox_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: outbound_job outbound_job_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbound_job
+    ADD CONSTRAINT outbound_job_pkey PRIMARY KEY (id);
 
 
 --
@@ -476,6 +518,13 @@ CREATE INDEX idx_mailbox_block_rule_mailbox_id ON public.mailbox_block_rule USIN
 
 
 --
+-- Name: idx_outbound_job_status_next; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_outbound_job_status_next ON public.outbound_job USING btree (status, next_attempt_datetime) WHERE (status = ANY (ARRAY['QUEUED'::public.outbound_status, 'DEFERRED'::public.outbound_status]));
+
+
+--
 -- Name: idx_sending_address_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -577,6 +626,14 @@ ALTER TABLE ONLY public.mailbox
 
 
 --
+-- Name: outbound_job outbound_job_email_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbound_job
+    ADD CONSTRAINT outbound_job_email_id_fkey FOREIGN KEY (email_id) REFERENCES public.email(id) ON DELETE SET NULL;
+
+
+--
 -- Name: sending_address sending_address_mailbox_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -621,4 +678,5 @@ ALTER TABLE ONLY public.webmail_session
 
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260228000000'),
-    ('20260329000000');
+    ('20260329000000'),
+    ('20260329000001');

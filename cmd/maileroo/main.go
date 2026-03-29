@@ -141,6 +141,10 @@ func runServe() {
 		}(s)
 	}
 
+	// Start delivery queue worker
+	queue := outbound.NewQueue(database, mta)
+	queue.Start(ctx)
+
 	// Initialize Web Server
 	webServer := web.NewServer(*cfg, database, store, hub, mta, mailSvc)
 
