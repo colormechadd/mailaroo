@@ -57,6 +57,21 @@ CREATE TABLE public.address_mapping (
 
 
 --
+-- Name: dkim_key; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dkim_key (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    domain text NOT NULL,
+    selector text DEFAULT 'maileroo'::text NOT NULL,
+    key_data bytea NOT NULL,
+    is_active boolean DEFAULT true,
+    create_datetime timestamp with time zone DEFAULT now(),
+    update_datetime timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: email; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -232,6 +247,22 @@ CREATE TABLE public.webmail_session (
 
 ALTER TABLE ONLY public.address_mapping
     ADD CONSTRAINT address_mapping_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dkim_key dkim_key_domain_selector_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dkim_key
+    ADD CONSTRAINT dkim_key_domain_selector_key UNIQUE (domain, selector);
+
+
+--
+-- Name: dkim_key dkim_key_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dkim_key
+    ADD CONSTRAINT dkim_key_pkey PRIMARY KEY (id);
 
 
 --
@@ -589,4 +620,5 @@ ALTER TABLE ONLY public.webmail_session
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20260228000000');
+    ('20260228000000'),
+    ('20260329000000');
