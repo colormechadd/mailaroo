@@ -18,7 +18,6 @@ import (
 // RecipientInfo stores mapping details for a recipient
 type RecipientInfo struct {
 	Address   string
-	UserID    uuid.UUID
 	MailboxID uuid.UUID
 	MappingID uuid.UUID
 }
@@ -74,7 +73,6 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 	slog.Info("recipient accepted", "to", to, "mailbox_id", mb.ID)
 	s.to = append(s.to, RecipientInfo{
 		Address:   to,
-		UserID:    mb.UserID,
 		MailboxID: mb.ID,
 		MappingID: mappingID,
 	})
@@ -96,7 +94,6 @@ func (s *Session) Data(r io.Reader) error {
 			FromAddress:      s.from,
 			ToAddresses:      []string{rcpt.Address},
 			RawMessage:       data,
-			UserID:           rcpt.UserID,
 			TargetMailboxID:  rcpt.MailboxID,
 			AddressMappingID: rcpt.MappingID,
 		}

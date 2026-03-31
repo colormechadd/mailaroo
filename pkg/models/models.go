@@ -15,9 +15,15 @@ type User struct {
 }
 
 type Mailbox struct {
-	ID     uuid.UUID `db:"id" json:"id"`
-	UserID uuid.UUID `db:"user_id" json:"user_id"`
-	Name   string    `db:"name" json:"name"`
+	ID   uuid.UUID `db:"id" json:"id"`
+	Name string    `db:"name" json:"name"`
+}
+
+type MailboxUser struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	MailboxID uuid.UUID `db:"mailbox_id" json:"mailbox_id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	IsActive  bool      `db:"is_active" json:"is_active"`
 }
 
 type SendingAddress struct {
@@ -104,7 +110,8 @@ type Email struct {
 	IsStar           bool       `db:"is_star" json:"is_star"`
 	Direction        EmailDirection `db:"direction" json:"direction"`
 	Status           EmailStatus    `db:"status" json:"status"`
-	SendingAddressID *uuid.UUID `db:"sending_address_id" json:"sending_address_id"`
+	SendingAddressID *uuid.UUID     `db:"sending_address_id" json:"sending_address_id"`
+	UserID           *uuid.UUID     `db:"user_id" json:"user_id,omitempty"`
 }
 
 type DKIMKey struct {

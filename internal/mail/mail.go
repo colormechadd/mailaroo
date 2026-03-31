@@ -152,6 +152,9 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 
 	if opts.IsOutbound {
 		email.Direction = models.DirectionOutbound
+		if opts.UserID != uuid.Nil {
+			email.UserID = &opts.UserID
+		}
 	}
 	if opts.IsQuarantined {
 		email.Status = models.StatusQuarantined

@@ -1,14 +1,25 @@
 package pipeline
 
-import "context"
+import (
+	"context"
+	"log/slog"
+)
 
-// Notify broadcasts a new-mail event to the hub
+// Notify broadcasts a new-mail event to all active users of the mailbox
 func Notify(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error) {
-	p.hub.Broadcast(Event{
-		UserID:    ictx.UserID,
-		MailboxID: ictx.TargetMailboxID,
-		Type:      "new-mail",
-	})
+	userIDs, err := p.db.GetMailboxUserIDs(ctx, ictx.TargetMailboxID)
+	if err != nil {
+		slog.Error("failed to get mailbox user IDs for notification", "mailbox_id", ictx.TargetMailboxID, "error", err)
+		return StatusError, nil, err
+	}
+
+	for _, userID := range userIDs {
+		p.hub.Broadcast(Event{
+			UserID:    userID,
+			MailboxID: ictx.TargetMailboxID,
+			Type:      "new-mail",
+		})
+	}
 
 	return StatusPass, nil, nil
 }

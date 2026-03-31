@@ -44,6 +44,7 @@ func init() {
 	mailboxCmd.AddCommand(mailboxAddCmd)
 	mailboxCmd.AddCommand(mailboxListCmd)
 	mailboxCmd.AddCommand(mappingAddCmd)
+	mailboxCmd.AddCommand(mailboxAddUserCmd)
 
 	sendingAddressCmd.AddCommand(saAddCmd)
 	sendingAddressCmd.AddCommand(saListCmd)
@@ -121,12 +122,11 @@ var mailboxAddCmd = &cobra.Command{
 		}
 
 		mb := &models.Mailbox{
-			ID:     uuid.New(),
-			UserID: user.ID,
-			Name:   args[1],
+			ID:   uuid.New(),
+			Name: args[1],
 		}
 
-		if err := database.CreateMailbox(context.Background(), mb); err != nil {
+		if err := database.CreateMailbox(context.Background(), mb, user.ID); err != nil {
 			log.Fatalf("failed to create mailbox: %v", err)
 		}
 
@@ -160,6 +160,35 @@ var mailboxListCmd = &cobra.Command{
 		for _, m := range mailboxes {
 			cmd.Printf("%-36s | %-20s\n", m.ID, m.Name)
 		}
+	},
+}
+
+var mailboxAddUserCmd = &cobra.Command{
+	Use:   "add-user [mailbox_id] [username]",
+	Short: "Add a user to a mailbox",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		database, err := db.Connect(cfg.DatabaseURL)
+		if err != nil {
+			log.Fatalf("failed to connect to database: %v", err)
+		}
+		defer database.Close()
+
+		mailboxID, err := uuid.Parse(args[0])
+		if err != nil {
+			log.Fatalf("invalid mailbox ID: %v", err)
+		}
+
+		user, err := database.GetUserByUsername(context.Background(), args[1])
+		if err != nil {
+			log.Fatalf("failed to find user %s: %v", args[1], err)
+		}
+
+		if err := database.AddUserToMailbox(context.Background(), mailboxID, user.ID); err != nil {
+			log.Fatalf("failed to add user to mailbox: %v", err)
+		}
+
+		cmd.Printf("User %s added to mailbox %s\n", user.Username, mailboxID)
 	},
 }
 

@@ -112,7 +112,8 @@ CREATE TABLE public.email (
     direction public.email_direction NOT NULL,
     status public.email_status DEFAULT 'INBOX'::public.email_status NOT NULL,
     create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    user_id uuid
 );
 
 
@@ -168,7 +169,6 @@ CREATE TABLE public.ingestion_step (
 
 CREATE TABLE public.mailbox (
     id uuid DEFAULT uuidv7() NOT NULL,
-    user_id uuid NOT NULL,
     name text NOT NULL,
     create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
@@ -184,6 +184,20 @@ CREATE TABLE public.mailbox_block_rule (
     mailbox_id uuid NOT NULL,
     address_pattern text NOT NULL,
     is_active boolean DEFAULT true,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: mailbox_user; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mailbox_user (
+    id uuid DEFAULT uuidv7() CONSTRAINT mailbox_user_id_not_null1 NOT NULL,
+    mailbox_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
     create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -348,6 +362,14 @@ ALTER TABLE ONLY public.mailbox
 
 
 --
+-- Name: mailbox_user mailbox_user_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mailbox_user
+    ADD CONSTRAINT mailbox_user_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: outbound_job outbound_job_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -504,6 +526,13 @@ CREATE INDEX idx_email_thread_id ON public.email USING btree (thread_id);
 
 
 --
+-- Name: idx_email_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_user_id ON public.email USING btree (user_id);
+
+
+--
 -- Name: idx_ingestion_step_ingestion_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -515,6 +544,27 @@ CREATE INDEX idx_ingestion_step_ingestion_id ON public.ingestion_step USING btre
 --
 
 CREATE INDEX idx_mailbox_block_rule_mailbox_id ON public.mailbox_block_rule USING btree (mailbox_id);
+
+
+--
+-- Name: idx_mailbox_user_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_mailbox_user_active ON public.mailbox_user USING btree (mailbox_id, user_id) WHERE (is_active = true);
+
+
+--
+-- Name: idx_mailbox_user_mailbox_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mailbox_user_mailbox_id ON public.mailbox_user USING btree (mailbox_id);
+
+
+--
+-- Name: idx_mailbox_user_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mailbox_user_user_id ON public.mailbox_user USING btree (user_id);
 
 
 --
@@ -602,6 +652,14 @@ ALTER TABLE ONLY public.email
 
 
 --
+-- Name: email email_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email
+    ADD CONSTRAINT email_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE SET NULL;
+
+
+--
 -- Name: ingestion_step ingestion_step_ingestion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -618,11 +676,19 @@ ALTER TABLE ONLY public.mailbox_block_rule
 
 
 --
--- Name: mailbox mailbox_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: mailbox_user mailbox_user_mailbox_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.mailbox
-    ADD CONSTRAINT mailbox_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.mailbox_user
+    ADD CONSTRAINT mailbox_user_mailbox_id_fkey FOREIGN KEY (mailbox_id) REFERENCES public.mailbox(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mailbox_user mailbox_user_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mailbox_user
+    ADD CONSTRAINT mailbox_user_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
 
 
 --
@@ -679,4 +745,5 @@ ALTER TABLE ONLY public.webmail_session
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260228000000'),
     ('20260329000000'),
-    ('20260329000001');
+    ('20260329000001'),
+    ('20260330000000');

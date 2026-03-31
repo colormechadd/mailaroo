@@ -63,6 +63,11 @@ func (m *MockDB) UpdateOutboundJobFailed(ctx context.Context, id uuid.UUID, last
 	return args.Error(0)
 }
 
+func (m *MockDB) GetMailboxUserIDs(ctx context.Context, mailboxID uuid.UUID) ([]uuid.UUID, error) {
+	args := m.Called(ctx, mailboxID)
+	return args.Get(0).([]uuid.UUID), args.Error(1)
+}
+
 type MockHub struct {
 	mock.Mock
 }

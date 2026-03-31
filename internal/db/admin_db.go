@@ -9,13 +9,15 @@ import (
 
 type AdminDB interface {
 	CreateUser(ctx context.Context, user *models.User) error
-	CreateMailbox(ctx context.Context, mb *models.Mailbox) error
+	CreateMailbox(ctx context.Context, mb *models.Mailbox, userID uuid.UUID) error
 	CreateAddressMapping(ctx context.Context, am *models.AddressMapping) error
 	ListUsers(ctx context.Context) ([]models.User, error)
 	ListMailboxes(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error)
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
 	DeleteMailbox(ctx context.Context, mailboxID uuid.UUID) error
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+
+	AddUserToMailbox(ctx context.Context, mailboxID, userID uuid.UUID) error
 
 	AddSendingAddress(ctx context.Context, sa *models.SendingAddress) error
 	ListSendingAddresses(ctx context.Context, userID uuid.UUID) ([]models.SendingAddress, error)
@@ -39,10 +41,15 @@ func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
 		return err
 	}
 
-	// Create default mailboxes
+	// Create default mailboxes and associate with the user
 	defaults := []string{"Inbox"}
 	for _, name := range defaults {
-		_, err = tx.ExecContext(ctx, "INSERT INTO mailbox (id, user_id, name) VALUES ($1, $2, $3)", uuid.New(), user.ID, name)
+		mbID := uuid.New()
+		_, err = tx.ExecContext(ctx, "INSERT INTO mailbox (id, name) VALUES ($1, $2)", mbID, name)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, "INSERT INTO mailbox_user (mailbox_id, user_id) VALUES ($1, $2)", mbID, user.ID)
 		if err != nil {
 			return err
 		}
@@ -51,9 +58,22 @@ func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
 	return tx.Commit()
 }
 
-func (db *DB) CreateMailbox(ctx context.Context, mb *models.Mailbox) error {
-	_, err := db.ExecContext(ctx, "INSERT INTO mailbox (id, user_id, name) VALUES ($1, $2, $3)", mb.ID, mb.UserID, mb.Name)
-	return err
+func (db *DB) CreateMailbox(ctx context.Context, mb *models.Mailbox, userID uuid.UUID) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, "INSERT INTO mailbox (id, name) VALUES ($1, $2)", mb.ID, mb.Name)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, "INSERT INTO mailbox_user (mailbox_id, user_id) VALUES ($1, $2)", mb.ID, userID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (db *DB) CreateAddressMapping(ctx context.Context, am *models.AddressMapping) error {
@@ -69,7 +89,12 @@ func (db *DB) ListUsers(ctx context.Context) ([]models.User, error) {
 
 func (db *DB) ListMailboxes(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error) {
 	var mailboxes []models.Mailbox
-	err := db.SelectContext(ctx, &mailboxes, "SELECT id, user_id, name FROM mailbox WHERE user_id = $1 ORDER BY name ASC", userID)
+	err := db.SelectContext(ctx, &mailboxes, `
+		SELECT m.id, m.name FROM mailbox m
+		JOIN mailbox_user mu ON mu.mailbox_id = m.id
+		WHERE mu.user_id = $1 AND mu.is_active = TRUE
+		ORDER BY m.name ASC
+	`, userID)
 	return mailboxes, err
 }
 
@@ -80,6 +105,15 @@ func (db *DB) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 
 func (db *DB) DeleteMailbox(ctx context.Context, mailboxID uuid.UUID) error {
 	_, err := db.ExecContext(ctx, "DELETE FROM mailbox WHERE id = $1", mailboxID)
+	return err
+}
+
+func (db *DB) AddUserToMailbox(ctx context.Context, mailboxID, userID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO mailbox_user (mailbox_id, user_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, mailboxID, userID)
 	return err
 }
 

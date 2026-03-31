@@ -34,17 +34,18 @@ func TestProcess_Success(t *testing.T) {
 		{"notify", Notify},
 	}
 
+	mailboxID := uuid.New()
 	ictx := &IngestionContext{
 		ID:               uuid.New(),
 		RemoteIP:         net.ParseIP("127.0.0.1"),
 		FromAddress:      "sender@test.com",
 		ToAddresses:      []string{"rcpt@test.com"},
 		RawMessage:       []byte("Subject: Test\nIn-Reply-To: <parent@test.com>\n\nHello"),
-		UserID:           uuid.New(),
-		TargetMailboxID:  uuid.New(),
+		TargetMailboxID:  mailboxID,
 		AddressMappingID: uuid.New(),
 	}
 
+	userID := uuid.New()
 	mockDB.On("CreateIngestion", mock.Anything, mock.Anything).Return(nil).Once()
 	mockStorage.On("Save", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockDB.On("FindThreadIDByMessageIDs", mock.Anything, mock.Anything, mock.Anything).Return(uuid.Nil, nil).Once()
@@ -61,6 +62,7 @@ func TestProcess_Success(t *testing.T) {
 		return s.StepName == "finalize" && s.Status == "pass"
 	})).Return(nil).Once()
 
+	mockDB.On("GetMailboxUserIDs", mock.Anything, mailboxID).Return([]uuid.UUID{userID}, nil).Once()
 	mockHub.On("Broadcast", mock.Anything).Return().Once()
 	mockDB.On("CreateIngestionStep", mock.Anything, mock.MatchedBy(func(s *models.IngestionStep) bool {
 		return s.StepName == "notify"
@@ -108,7 +110,6 @@ func TestProcess_FailureLeavesQuarantined(t *testing.T) {
 		FromAddress:      "sender@test.com",
 		ToAddresses:      []string{"rcpt@test.com"},
 		RawMessage:       []byte("Subject: Test\nIn-Reply-To: <parent@test.com>\n\nHello"),
-		UserID:           uuid.New(),
 		TargetMailboxID:  uuid.New(),
 		AddressMappingID: uuid.New(),
 	}

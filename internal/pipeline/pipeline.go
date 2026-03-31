@@ -81,7 +81,6 @@ type IngestionContext struct {
 	FromAddress      string
 	ToAddresses      []string
 	RawMessage       []byte
-	UserID           uuid.UUID
 	TargetMailboxID  uuid.UUID
 	AddressMappingID uuid.UUID
 	StorageKey       string

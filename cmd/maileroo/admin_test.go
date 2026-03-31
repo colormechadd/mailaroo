@@ -174,7 +174,7 @@ func TestAdminSendingAddressCommands(t *testing.T) {
 	t.Run("sending-address add", func(t *testing.T) {
 		// First create a mailbox
 		mbID := uuid.New()
-		err := database.CreateMailbox(ctx, &models.Mailbox{ID: mbID, UserID: user.ID, Name: "Inbox"})
+		err := database.CreateMailbox(ctx, &models.Mailbox{ID: mbID, Name: "Inbox"}, user.ID)
 		assert.NoError(t, err)
 
 		output, err := executeCommand("admin", "sending-address", "add", "sauser", mbID.String(), "me@example.com")

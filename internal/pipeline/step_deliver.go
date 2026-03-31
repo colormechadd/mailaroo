@@ -13,7 +13,6 @@ func Deliver(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStat
 		RawMessage:       ictx.RawMessage,
 		IsOutbound:       false,
 		IsQuarantined:    true,
-		UserID:           ictx.UserID,
 		IngestionID:      &ictx.ID,
 		AddressMappingID: &ictx.AddressMappingID,
 	})

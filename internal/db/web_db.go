@@ -22,7 +22,7 @@ type WebDB interface {
 	GetAttachmentsByEmailID(ctx context.Context, emailID uuid.UUID) ([]models.EmailAttachment, error)
 	GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID uuid.UUID) (*models.EmailAttachment, error)
 	GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uuid.UUID) ([]models.IngestionStep, error)
-	
+
 	MarkEmailRead(ctx context.Context, emailID, userID uuid.UUID, read bool) error
 	MarkEmailStarred(ctx context.Context, emailID, userID uuid.UUID, starred bool) error
 	UpdateEmailStatus(ctx context.Context, emailID, userID uuid.UUID, status models.EmailStatus) error
@@ -61,14 +61,19 @@ func (db *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, erro
 
 func (db *DB) GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error) {
 	var mailboxes []models.Mailbox
-	err := db.SelectContext(ctx, &mailboxes, "SELECT id, user_id, name FROM mailbox WHERE user_id = $1 ORDER BY name ASC", userID)
+	err := db.SelectContext(ctx, &mailboxes, `
+		SELECT m.id, m.name FROM mailbox m
+		JOIN mailbox_user mu ON mu.mailbox_id = m.id
+		WHERE mu.user_id = $1 AND mu.is_active = TRUE
+		ORDER BY m.name ASC
+	`, userID)
 	return mailboxes, err
 }
 
 func (db *DB) GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, filter string, limit, offset int) ([]models.Email, error) {
 	var emails []models.Email
 	whereClause := "mailbox_id = $1 AND status = 'INBOX' AND direction = 'INBOUND'"
-	
+
 	switch filter {
 	case "unread":
 		whereClause = "mailbox_id = $1 AND is_read = FALSE AND status = 'INBOX' AND direction = 'INBOUND'"
@@ -87,13 +92,13 @@ func (db *DB) GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, fil
 	}
 
 	query := fmt.Sprintf(`
-		SELECT 
-			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
-			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, direction, status, sending_address_id
-		FROM email 
+		SELECT
+			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id,
+			in_reply_to, "references", subject, from_address, to_address,
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, direction, status, sending_address_id, user_id
+		FROM email
 		WHERE %s
-		ORDER BY receive_datetime DESC 
+		ORDER BY receive_datetime DESC
 		LIMIT $2 OFFSET $3
 	`, whereClause)
 
@@ -104,11 +109,11 @@ func (db *DB) GetEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, fil
 func (db *DB) GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Email, error) {
 	var email models.Email
 	err := db.GetContext(ctx, &email, `
-		SELECT 
-			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
-			in_reply_to, "references", subject, from_address, to_address, 
-			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, direction, status, sending_address_id
-		FROM email 
+		SELECT
+			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id,
+			in_reply_to, "references", subject, from_address, to_address,
+			reply_to_address, storage_key, size, receive_datetime, is_read, is_star, direction, status, sending_address_id, user_id
+		FROM email
 		WHERE id = $1
 	`, emailID)
 	return &email, err
@@ -117,13 +122,13 @@ func (db *DB) GetEmailByID(ctx context.Context, emailID uuid.UUID) (*models.Emai
 func (db *DB) GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID) (*models.Email, error) {
 	var email models.Email
 	err := db.GetContext(ctx, &email, `
-		SELECT 
-			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id, 
-			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address, 
-			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.direction, e.status, e.sending_address_id
+		SELECT
+			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id,
+			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address,
+			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.direction, e.status, e.sending_address_id, e.user_id
 		FROM email e
-		JOIN mailbox m ON e.mailbox_id = m.id
-		WHERE e.id = $1 AND m.user_id = $2
+		JOIN mailbox_user mu ON e.mailbox_id = mu.mailbox_id
+		WHERE e.id = $1 AND mu.user_id = $2 AND mu.is_active = TRUE
 	`, emailID, userID)
 	return &email, err
 }
@@ -137,12 +142,12 @@ func (db *DB) GetAttachmentsByEmailID(ctx context.Context, emailID uuid.UUID) ([
 func (db *DB) GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID uuid.UUID) (*models.EmailAttachment, error) {
 	var att models.EmailAttachment
 	err := db.GetContext(ctx, &att, `
-		SELECT 
+		SELECT
 			a.id, a.email_id, a.filename, a.content_type, a.size, a.storage_key
 		FROM email_attachment a
 		JOIN email e ON a.email_id = e.id
-		JOIN mailbox m ON e.mailbox_id = m.id
-		WHERE a.id = $1 AND m.user_id = $2
+		JOIN mailbox_user mu ON e.mailbox_id = mu.mailbox_id
+		WHERE a.id = $1 AND mu.user_id = $2 AND mu.is_active = TRUE
 	`, attachmentID, userID)
 	return &att, err
 }
@@ -150,12 +155,12 @@ func (db *DB) GetAttachmentByIDForUser(ctx context.Context, attachmentID, userID
 func (db *DB) GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uuid.UUID) ([]models.IngestionStep, error) {
 	var steps []models.IngestionStep
 	err := db.SelectContext(ctx, &steps, `
-		SELECT 
+		SELECT
 			s.id, s.ingestion_id, s.step_name, s.status, s.details, s.duration_ms
 		FROM ingestion_step s
 		JOIN email e ON s.ingestion_id = e.ingestion_id
-		JOIN mailbox m ON e.mailbox_id = m.id
-		WHERE e.id = $1 AND m.user_id = $2
+		JOIN mailbox_user mu ON e.mailbox_id = mu.mailbox_id
+		WHERE e.id = $1 AND mu.user_id = $2 AND mu.is_active = TRUE
 		ORDER BY s.create_datetime ASC
 	`, emailID, userID)
 	return steps, err
@@ -170,8 +175,8 @@ func (db *DB) MarkEmailRead(ctx context.Context, emailID, userID uuid.UUID, read
 	_, err := db.ExecContext(ctx, `
 		UPDATE email e
 		SET is_read = $1, read_datetime = $2
-		FROM mailbox m
-		WHERE e.mailbox_id = m.id AND e.id = $3 AND m.user_id = $4
+		FROM mailbox_user mu
+		WHERE e.mailbox_id = mu.mailbox_id AND e.id = $3 AND mu.user_id = $4 AND mu.is_active = TRUE
 	`, read, readTime, emailID, userID)
 	return err
 }
@@ -185,8 +190,8 @@ func (db *DB) MarkEmailStarred(ctx context.Context, emailID, userID uuid.UUID, s
 	_, err := db.ExecContext(ctx, `
 		UPDATE email e
 		SET is_star = $1, star_datetime = $2
-		FROM mailbox m
-		WHERE e.mailbox_id = m.id AND e.id = $3 AND m.user_id = $4
+		FROM mailbox_user mu
+		WHERE e.mailbox_id = mu.mailbox_id AND e.id = $3 AND mu.user_id = $4 AND mu.is_active = TRUE
 	`, starred, starTime, emailID, userID)
 	return err
 }
@@ -195,8 +200,8 @@ func (db *DB) UpdateEmailStatus(ctx context.Context, emailID, userID uuid.UUID, 
 	_, err := db.ExecContext(ctx, `
 		UPDATE email e
 		SET status = $1
-		FROM mailbox m
-		WHERE e.mailbox_id = m.id AND e.id = $2 AND m.user_id = $3
+		FROM mailbox_user mu
+		WHERE e.mailbox_id = mu.mailbox_id AND e.id = $2 AND mu.user_id = $3 AND mu.is_active = TRUE
 	`, status, emailID, userID)
 	return err
 }

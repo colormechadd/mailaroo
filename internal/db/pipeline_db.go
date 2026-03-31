@@ -20,6 +20,7 @@ type PipelineDB interface {
 	CreateThread(ctx context.Context, thread *models.Thread) error
 	FindThreadIDByMessageIDs(ctx context.Context, mailboxID uuid.UUID, messageIDs []string) (uuid.UUID, error)
 	UpdateOutboundJobFailed(ctx context.Context, id uuid.UUID, lastError string) error
+	GetMailboxUserIDs(ctx context.Context, mailboxID uuid.UUID) ([]uuid.UUID, error)
 }
 
 func (db *DB) CreateIngestion(ctx context.Context, ingestion *models.Ingestion) error {
@@ -61,15 +62,15 @@ func (db *DB) IsBlockedByMailboxRules(ctx context.Context, mailboxID uuid.UUID, 
 func (db *DB) CreateEmail(ctx context.Context, email *models.Email) error {
 	_, err := db.NamedExecContext(ctx, `
 		INSERT INTO email (
-			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id, 
-			in_reply_to, "references", subject, from_address, to_address, 
+			id, mailbox_id, thread_id, address_mapping_id, ingestion_id, message_id,
+			in_reply_to, "references", subject, from_address, to_address,
 			reply_to_address, storage_key, size, receive_datetime, is_read, is_star,
-			direction, status, sending_address_id
+			direction, status, sending_address_id, user_id
 		) VALUES (
-			:id, :mailbox_id, :thread_id, :address_mapping_id, :ingestion_id, :message_id, 
-			:in_reply_to, :references, :subject, :from_address, :to_address, 
+			:id, :mailbox_id, :thread_id, :address_mapping_id, :ingestion_id, :message_id,
+			:in_reply_to, :references, :subject, :from_address, :to_address,
 			:reply_to_address, :storage_key, :size, :receive_datetime, :is_read, :is_star,
-			:direction, :status, :sending_address_id
+			:direction, :status, :sending_address_id, :user_id
 		)
 	`, email)
 	return err
@@ -118,4 +119,12 @@ func (db *DB) FindThreadIDByMessageIDs(ctx context.Context, mailboxID uuid.UUID,
 	query = db.Rebind(query)
 	err = db.GetContext(ctx, &threadID, query, args...)
 	return threadID, err
+}
+
+func (db *DB) GetMailboxUserIDs(ctx context.Context, mailboxID uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := db.SelectContext(ctx, &ids, `
+		SELECT user_id FROM mailbox_user WHERE mailbox_id = $1 AND is_active = TRUE
+	`, mailboxID)
+	return ids, err
 }
