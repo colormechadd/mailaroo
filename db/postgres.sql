@@ -156,6 +156,21 @@ CREATE TABLE public.email_attachment (
 
 
 --
+-- Name: greylist_entry; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.greylist_entry (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    ip_address inet NOT NULL,
+    from_address text NOT NULL,
+    to_address text NOT NULL,
+    first_seen timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    last_seen timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    pass_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
 -- Name: ingestion; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -181,6 +196,20 @@ CREATE TABLE public.ingestion_step (
     status text NOT NULL,
     details jsonb,
     duration_ms integer,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: ip_block; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ip_block (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    ip_address inet NOT NULL,
+    reason text,
+    blocked_until timestamp with time zone,
+    is_permanent boolean DEFAULT false NOT NULL,
     create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -360,6 +389,22 @@ ALTER TABLE ONLY public.email
 
 
 --
+-- Name: greylist_entry greylist_entry_ip_address_from_address_to_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.greylist_entry
+    ADD CONSTRAINT greylist_entry_ip_address_from_address_to_address_key UNIQUE (ip_address, from_address, to_address);
+
+
+--
+-- Name: greylist_entry greylist_entry_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.greylist_entry
+    ADD CONSTRAINT greylist_entry_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: ingestion ingestion_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -373,6 +418,14 @@ ALTER TABLE ONLY public.ingestion
 
 ALTER TABLE ONLY public.ingestion_step
     ADD CONSTRAINT ingestion_step_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ip_block ip_block_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ip_block
+    ADD CONSTRAINT ip_block_pkey PRIMARY KEY (id);
 
 
 --
@@ -563,10 +616,31 @@ CREATE INDEX idx_email_user_id ON public.email USING btree (user_id);
 
 
 --
+-- Name: idx_greylist_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_greylist_lookup ON public.greylist_entry USING btree (ip_address, from_address, to_address);
+
+
+--
 -- Name: idx_ingestion_step_ingestion_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_ingestion_step_ingestion_id ON public.ingestion_step USING btree (ingestion_id);
+
+
+--
+-- Name: idx_ip_block_ip; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ip_block_ip ON public.ip_block USING btree (ip_address);
+
+
+--
+-- Name: idx_ip_block_until; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ip_block_until ON public.ip_block USING btree (blocked_until) WHERE (is_permanent = false);
 
 
 --
@@ -801,4 +875,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260329000000'),
     ('20260329000001'),
     ('20260330000000'),
-    ('20260330000001');
+    ('20260330000001'),
+    ('20260330000002');

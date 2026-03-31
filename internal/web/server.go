@@ -29,22 +29,24 @@ import (
 )
 
 type Server struct {
-	cfg     config.Config
-	db      db.WebDB
-	storage storage.Storage
-	hub     *Hub
-	sender  outbound.Sender
-	mail    *mail.Service
+	cfg         config.Config
+	db          db.WebDB
+	rateLimitDB db.RateLimitDB
+	storage     storage.Storage
+	hub         *Hub
+	sender      outbound.Sender
+	mail        *mail.Service
 }
 
-func NewServer(cfg config.Config, webDB db.WebDB, storage storage.Storage, hub *Hub, sender outbound.Sender, mailSvc *mail.Service) *Server {
+func NewServer(cfg config.Config, webDB db.WebDB, rateLimitDB db.RateLimitDB, storage storage.Storage, hub *Hub, sender outbound.Sender, mailSvc *mail.Service) *Server {
 	return &Server{
-		cfg:     cfg,
-		db:      webDB,
-		storage: storage,
-		hub:     hub,
-		sender:  sender,
-		mail:    mailSvc,
+		cfg:         cfg,
+		db:          webDB,
+		rateLimitDB: rateLimitDB,
+		storage:     storage,
+		hub:         hub,
+		sender:      sender,
+		mail:        mailSvc,
 	}
 }
 
@@ -320,6 +322,16 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
 		http.Error(w, "Failed to save email", http.StatusInternalServerError)
 		return
+	}
+
+	if s.cfg.RateLimit.OutboundPerUserHour > 0 {
+		count, err := s.rateLimitDB.CountOutboundByUserHour(r.Context(), user.ID)
+		if err != nil {
+			slog.Error("failed to check outbound rate limit", "user_id", user.ID, "error", err)
+		} else if count >= s.cfg.RateLimit.OutboundPerUserHour {
+			http.Error(w, "Hourly sending limit reached, please try again later", http.StatusTooManyRequests)
+			return
+		}
 	}
 
 	if _, err := s.db.InsertOutboundJob(r.Context(), &email.ID, from, recipients, rawBytes); err != nil {

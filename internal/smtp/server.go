@@ -7,12 +7,15 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"sync"
+	"time"
 
 	"github.com/colormechadd/maileroo/internal/config"
 	"github.com/colormechadd/maileroo/internal/db"
 	"github.com/colormechadd/maileroo/internal/pipeline"
 	gosmtp "github.com/emersion/go-smtp"
 	"github.com/google/uuid"
+	"golang.org/x/time/rate"
 )
 
 // RecipientInfo stores mapping details for a recipient
@@ -24,17 +27,81 @@ type RecipientInfo struct {
 
 // Backend implements smtp.Backend
 type Backend struct {
-	cfg      config.SMTPConfig
-	db       db.MailDB
-	pipeline *pipeline.Pipeline
+	cfg         config.SMTPConfig
+	rateCfg     config.RateLimitConfig
+	db          db.MailDB
+	rateLimitDB db.RateLimitDB
+	pipeline    *pipeline.Pipeline
+	mu          sync.Mutex
+	limiters    map[string]*rate.Limiter
+	violations  map[string]int
+}
+
+func (bkd *Backend) getLimiter(ip string) *rate.Limiter {
+	bkd.mu.Lock()
+	defer bkd.mu.Unlock()
+	if l, ok := bkd.limiters[ip]; ok {
+		return l
+	}
+	r := rate.Every(time.Minute / time.Duration(bkd.rateCfg.SMTPConnectionsPerMinute))
+	l := rate.NewLimiter(r, bkd.rateCfg.SMTPConnectionsPerMinute)
+	bkd.limiters[ip] = l
+	return l
 }
 
 func (bkd *Backend) NewSession(c *gosmtp.Conn) (gosmtp.Session, error) {
 	remoteIP, _, _ := net.SplitHostPort(c.Conn().RemoteAddr().String())
 	slog.Info("new smtp connection", "remote_addr", c.Conn().RemoteAddr().String())
+
+	parsedIP := net.ParseIP(remoteIP)
+
+	// Check persistent IP block list
+	if parsedIP != nil {
+		blocked, err := bkd.rateLimitDB.IsIPBlocked(context.Background(), parsedIP)
+		if err != nil {
+			slog.Error("failed to check ip block", "ip", remoteIP, "error", err)
+		} else if blocked {
+			slog.Warn("smtp connection rejected: ip blocked", "ip", remoteIP)
+			return nil, &gosmtp.SMTPError{
+				Code:    421,
+				Message: "Your IP address is temporarily blocked",
+			}
+		}
+	}
+
+	// In-memory per-IP rate limiting
+	if parsedIP != nil && bkd.rateCfg.SMTPConnectionsPerMinute > 0 {
+		limiter := bkd.getLimiter(remoteIP)
+		if !limiter.Allow() {
+			bkd.mu.Lock()
+			bkd.violations[remoteIP]++
+			violations := bkd.violations[remoteIP]
+			bkd.mu.Unlock()
+
+			slog.Warn("smtp connection rate limited", "ip", remoteIP, "violations", violations)
+
+			if bkd.rateCfg.SMTPAutoBlockThreshold > 0 && violations >= bkd.rateCfg.SMTPAutoBlockThreshold {
+				until := time.Now().Add(bkd.rateCfg.SMTPAutoBlockDuration)
+				if err := bkd.rateLimitDB.AddIPBlock(context.Background(), parsedIP, "auto-blocked: rate limit exceeded", &until); err != nil {
+					slog.Error("failed to auto-block ip", "ip", remoteIP, "error", err)
+				} else {
+					slog.Warn("smtp ip auto-blocked", "ip", remoteIP, "until", until)
+					bkd.mu.Lock()
+					delete(bkd.violations, remoteIP)
+					bkd.mu.Unlock()
+				}
+			}
+
+			return nil, &gosmtp.SMTPError{
+				Code:    421,
+				Message: "Too many connections from your IP, please try again later",
+			}
+		}
+	}
+
 	return &Session{
 		backend:  bkd,
-		remoteIP: net.ParseIP(remoteIP),
+		remoteIP: parsedIP,
 	}, nil
 }
 
@@ -67,6 +134,23 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 			Code:         550,
 			EnhancedCode: gosmtp.EnhancedCode{5, 1, 1},
 			Message:      "User unknown",
+		}
+	}
+
+	// Greylisting: check (ip, from, to) triplet before accepting the recipient
+	if s.remoteIP != nil && s.backend.rateCfg.GreylistEnabled {
+		pass, err := s.backend.rateLimitDB.CheckAndUpdateGreylist(
+			context.Background(), s.remoteIP, s.from, to, s.backend.rateCfg.GreylistDelay,
+		)
+		if err != nil {
+			slog.Error("greylist check failed", "ip", s.remoteIP, "from", s.from, "to", to, "error", err)
+		} else if !pass {
+			slog.Info("smtp recipient greylisted", "ip", s.remoteIP, "from", s.from, "to", to)
+			return &gosmtp.SMTPError{
+				Code:         451,
+				EnhancedCode: gosmtp.EnhancedCode{4, 7, 1},
+				Message:      "Greylisted, please try again later",
+			}
 		}
 	}
 
@@ -122,9 +206,17 @@ func (s *Session) Logout() error {
 }
 
 // StartServers initializes and starts the SMTP servers on the configured ports
-func StartServers(cfg config.SMTPConfig, mailDB db.MailDB, p *pipeline.Pipeline) ([]*gosmtp.Server, error) {
+func StartServers(cfg config.SMTPConfig, rateCfg config.RateLimitConfig, mailDB db.MailDB, rateLimitDB db.RateLimitDB, p *pipeline.Pipeline) ([]*gosmtp.Server, error) {
 	var servers []*gosmtp.Server
-	be := &Backend{cfg: cfg, db: mailDB, pipeline: p}
+	be := &Backend{
+		cfg:         cfg,
+		rateCfg:     rateCfg,
+		db:          mailDB,
+		rateLimitDB: rateLimitDB,
+		pipeline:    p,
+		limiters:    make(map[string]*rate.Limiter),
+		violations:  make(map[string]int),
+	}
 
 	var tlsConfig *tls.Config
 	if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {

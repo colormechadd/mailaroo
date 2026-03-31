@@ -37,6 +37,15 @@ type GCSStorageConfig struct {
 	Prefix string `mapstructure:"PREFIX"`
 }
 
+type RateLimitConfig struct {
+	SMTPConnectionsPerMinute int           `mapstructure:"SMTP_CONNECTIONS_PER_MINUTE"`
+	SMTPAutoBlockThreshold   int           `mapstructure:"SMTP_AUTO_BLOCK_THRESHOLD"`
+	SMTPAutoBlockDuration    time.Duration `mapstructure:"SMTP_AUTO_BLOCK_DURATION"`
+	OutboundPerUserHour      int           `mapstructure:"OUTBOUND_PER_USER_HOUR"`
+	GreylistEnabled          bool          `mapstructure:"GREYLIST_ENABLED"`
+	GreylistDelay            time.Duration `mapstructure:"GREYLIST_DELAY"`
+}
+
 type Config struct {
 	DatabaseURL string `mapstructure:"DATABASE_URL"`
 	WebPort     int    `mapstructure:"WEB_PORT"`
@@ -50,7 +59,8 @@ type Config struct {
 		RBLServers []string `mapstructure:"RBL_SERVERS"`
 	} `mapstructure:"SPAM"`
 
-	SMTP         SMTPConfig         `mapstructure:"SMTP"`
+	SMTP      SMTPConfig      `mapstructure:"SMTP"`
+	RateLimit RateLimitConfig `mapstructure:"RATE_LIMIT"`
 
 	StorageType string `mapstructure:"STORAGE_TYPE"` // "local", "s3", "gcs"
 	Compression string `mapstructure:"COMPRESSION"`  // "zstd", "gzip", "none"
@@ -76,6 +86,13 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("SMTP.WRITE_TIMEOUT", 10*time.Second)
 	viper.SetDefault("SMTP.MAX_MESSAGE_SIZE", 1024*1024*50) // 50MB
 	viper.SetDefault("SMTP.MAX_RECIPIENTS", 50)
+
+	viper.SetDefault("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE", 10)
+	viper.SetDefault("RATE_LIMIT.SMTP_AUTO_BLOCK_THRESHOLD", 30)
+	viper.SetDefault("RATE_LIMIT.SMTP_AUTO_BLOCK_DURATION", time.Hour)
+	viper.SetDefault("RATE_LIMIT.OUTBOUND_PER_USER_HOUR", 100)
+	viper.SetDefault("RATE_LIMIT.GREYLIST_ENABLED", false)
+	viper.SetDefault("RATE_LIMIT.GREYLIST_DELAY", 5*time.Minute)
 
 	viper.SetDefault("DKIM.ENCRYPTION_KEY", "")
 

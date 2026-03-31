@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"encoding/base64"
 
@@ -109,7 +110,7 @@ func runServe() {
 	mta := outbound.NewMTA(cfg.SMTP.Domain, cfg.SMTP.Relay, dkimSigner)
 
 	// Start SMTP servers
-	smtpServers, err := smtp.StartServers(cfg.SMTP, database, ingestionPipeline)
+	smtpServers, err := smtp.StartServers(cfg.SMTP, cfg.RateLimit, database, database, ingestionPipeline)
 	if err != nil {
 		slog.Error("failed to initialize SMTP servers", "error", err)
 		os.Exit(1)
@@ -145,8 +146,24 @@ func runServe() {
 	queue := outbound.NewQueue(database, mta)
 	queue.Start(ctx)
 
+	// Start background cleanup for rate limit data
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := database.PurgeExpiredRateLimitData(context.Background()); err != nil {
+					slog.Error("failed to purge expired rate limit data", "error", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	// Initialize Web Server
-	webServer := web.NewServer(*cfg, database, store, hub, mta, mailSvc)
+	webServer := web.NewServer(*cfg, database, database, store, hub, mta, mailSvc)
 
 	// Start Web server (Chi)
 	go func() {
