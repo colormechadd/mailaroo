@@ -20,7 +20,9 @@ func TestLookupMailboxByAddress(t *testing.T) {
 	assert.NoError(t, err)
 
 	mailboxID := uuid.New()
-	_, err = db.ExecContext(ctx, `INSERT INTO mailbox (id, user_id, name) VALUES ($1, $2, $3)`, mailboxID, userID, "Inbox")
+	_, err = db.ExecContext(ctx, `INSERT INTO mailbox (id, name) VALUES ($1, $2)`, mailboxID, "Inbox")
+	assert.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO mailbox_user (mailbox_id, user_id) VALUES ($1, $2)`, mailboxID, userID)
 	assert.NoError(t, err)
 
 	mappingID := uuid.New()

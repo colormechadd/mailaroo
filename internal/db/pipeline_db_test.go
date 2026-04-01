@@ -20,7 +20,8 @@ func TestPipelineDB(t *testing.T) {
 	userID := uuid.New()
 	db.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash) VALUES ($1, $2, $3)`, userID, "puser", "hash")
 	mailboxID := uuid.New()
-	db.ExecContext(ctx, `INSERT INTO mailbox (id, user_id, name) VALUES ($1, $2, $3)`, mailboxID, userID, "PBox")
+	db.ExecContext(ctx, `INSERT INTO mailbox (id, name) VALUES ($1, $2)`, mailboxID, "PBox")
+	db.ExecContext(ctx, `INSERT INTO mailbox_user (mailbox_id, user_id) VALUES ($1, $2)`, mailboxID, userID)
 
 	t.Run("CreateIngestion and UpdateStatus", func(t *testing.T) {
 		ingestionID := uuid.New()

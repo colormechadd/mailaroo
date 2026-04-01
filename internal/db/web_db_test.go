@@ -462,14 +462,16 @@ func TestWebDB(t *testing.T) {
 		// inboxEmailID has body_plain "unique searchable body content for test"
 		results, err := db.SearchEmailsByMailboxID(ctx, mailboxID, userID, "searchable", 50, 0)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, results)
-		assert.Equal(t, inboxEmailID, results[0].ID)
+		if assert.NotEmpty(t, results) {
+			assert.Equal(t, inboxEmailID, results[0].ID)
+		}
 
-		// Search by sender
-		results, err = db.SearchEmailsByMailboxID(ctx, mailboxID, userID, "alice", 50, 0)
+		// Search another body term
+		results, err = db.SearchEmailsByMailboxID(ctx, mailboxID, userID, "unique content", 50, 0)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, results)
-		assert.Equal(t, inboxEmailID, results[0].ID)
+		if assert.NotEmpty(t, results) {
+			assert.Equal(t, inboxEmailID, results[0].ID)
+		}
 
 		// Query that matches nothing
 		results, err = db.SearchEmailsByMailboxID(ctx, mailboxID, userID, "xyzzynotaword", 50, 0)

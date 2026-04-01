@@ -28,6 +28,7 @@ func setupTestDB(t *testing.T) (*DB, func()) {
 	if err != nil {
 		t.Fatalf("failed to connect to postgres for test db creation: %v", err)
 	}
+	_, _ = adminDB.Exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'maileroo_test' AND pid <> pg_backend_pid()")
 	_, _ = adminDB.Exec("DROP DATABASE IF EXISTS maileroo_test")
 	if _, err = adminDB.Exec("CREATE DATABASE maileroo_test"); err != nil {
 		t.Fatalf("failed to create test database: %v", err)

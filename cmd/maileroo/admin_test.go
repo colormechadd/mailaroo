@@ -37,7 +37,7 @@ func setupCLITestDB(t *testing.T) (*db.DB, func()) {
 		t.Fatal("DATABASE_URL must be set for CLI tests")
 	}
 	devURL = os.ExpandEnv(devURL)
-	testURL := strings.Replace(devURL, "/maileroo?", "/maileroo_test?", 1)
+	testURL := strings.Replace(devURL, "/maileroo?", "/maileroo_test_cli?", 1)
 	if !strings.Contains(testURL, "sslmode=") {
 		if strings.Contains(testURL, "?") {
 			testURL += "&sslmode=disable"
@@ -47,13 +47,14 @@ func setupCLITestDB(t *testing.T) (*db.DB, func()) {
 	}
 
 	// 1. Create the test database if it doesn't exist
-	adminURL := strings.Replace(testURL, "/maileroo_test?", "/postgres?", 1)
+	adminURL := strings.Replace(testURL, "/maileroo_test_cli?", "/postgres?", 1)
 	adminDB, err := sqlx.Connect("postgres", adminURL)
 	if err != nil {
 		t.Fatalf("failed to connect to postgres for test db creation: %v", err)
 	}
-	_, _ = adminDB.Exec("DROP DATABASE IF EXISTS maileroo_test")
-	_, err = adminDB.Exec("CREATE DATABASE maileroo_test")
+	_, _ = adminDB.Exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'maileroo_test_cli' AND pid <> pg_backend_pid()")
+	_, _ = adminDB.Exec("DROP DATABASE IF EXISTS maileroo_test_cli")
+	_, err = adminDB.Exec("CREATE DATABASE maileroo_test_cli")
 	if err != nil {
 		t.Fatalf("failed to create test database: %v", err)
 	}
@@ -132,7 +133,7 @@ func TestAdminMailboxCommands(t *testing.T) {
 
 		// Verify in DB
 		var count int
-		err = database.GetContext(ctx, &count, "SELECT COUNT(*) FROM mailbox WHERE user_id = $1 AND name = 'Work'", user.ID)
+		err = database.GetContext(ctx, &count, "SELECT COUNT(*) FROM mailbox m JOIN mailbox_user mu ON mu.mailbox_id = m.id WHERE mu.user_id = $1 AND m.name = 'Work'", user.ID)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})
