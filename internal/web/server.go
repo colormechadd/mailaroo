@@ -921,6 +921,8 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Expires:  expires,
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 	})
 
@@ -940,6 +942,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Expires:  time.Now().Add(-1 * time.Hour),
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 	})
 
