@@ -5,6 +5,66 @@ import (
 	"github.com/colormechadd/maileroo/pkg/models"
 )
 
+
+// addressAutocomplete wraps an address input with contact search dropdown.
+templ addressAutocomplete(fieldID, fieldName, label, value string, required bool) {
+	<div
+		class="relative"
+		x-data="{
+			open: false,
+			results: [],
+			search(val) {
+				const parts = val.split(',');
+				const q = parts[parts.length - 1].trim();
+				if (q.length < 2) { this.open = false; return; }
+				fetch('/contacts/search?q=' + encodeURIComponent(q))
+					.then(r => r.json())
+					.then(data => { this.results = data; this.open = data.length > 0; });
+			},
+			select(input, display) {
+				const parts = input.value.split(',');
+				parts[parts.length - 1] = ' ' + display;
+				input.value = parts.join(',') + ', ';
+				this.open = false;
+				input.focus();
+			}
+		}"
+		@click.outside="open = false"
+	>
+		<input
+			type="text"
+			id={ fieldID }
+			name={ fieldName }
+			value={ value }
+			required?={ required }
+			placeholder={ fieldName + "@example.com" }
+			autocomplete="off"
+			@input.debounce.300ms="search($event.target.value)"
+			@keydown.escape="open = false"
+			class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium"
+		/>
+		<div
+			x-show="open"
+			x-cloak
+			class="absolute z-30 top-full left-0 right-0 bg-white border border-purple-100 rounded-xl shadow-xl mt-1 overflow-hidden"
+		>
+			<template x-for="c in results" :key="c.id">
+				<button
+					type="button"
+					@mousedown.prevent={ fmt.Sprintf("select($el.closest('[x-data]').querySelector('input[name=%q]'), c.display)", fieldName) }
+					class="w-full text-left px-4 py-2.5 hover:bg-purple-50 flex items-center gap-3 transition-colors"
+				>
+					<div class="h-7 w-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold shrink-0" x-text="c.initials"></div>
+					<div class="flex-1 min-w-0">
+						<div class="text-sm font-medium text-gray-900 truncate" x-text="c.name || c.email"></div>
+						<div class="text-xs text-gray-500 truncate" x-text="c.email" x-show="c.name"></div>
+					</div>
+				</button>
+			</template>
+		</div>
+	</div>
+}
+
 templ Compose(addresses []models.SendingAddress, fromID, to, cc, bcc, subject, inReplyTo, references, draftID, title, body, bodyHTML string) {
 	{{
 		startIsHTML := bodyHTML != "" || body == ""
@@ -98,41 +158,19 @@ templ Compose(addresses []models.SendingAddress, fromID, to, cc, bcc, subject, i
 										<button type="button" @click="showBcc = !showBcc" class="text-[10px] font-bold text-purple-600 hover:text-purple-700 uppercase tracking-widest cursor-pointer">Bcc</button>
 									</div>
 								</div>
-								<input 
-									type="text" 
-									id="to" 
-									name="to" 
-									required
-									value={ to }
-									placeholder="recipient@example.com"
-									class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium"
-								/>
+								@addressAutocomplete("to", "to", "To", to, true)
 							</div>
 
 							<!-- Cc Address -->
 							<div x-show="showCc" x-cloak>
 								<label for="cc" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">Cc</label>
-								<input 
-									type="text" 
-									id="cc" 
-									name="cc" 
-									value={ cc }
-									placeholder="cc@example.com"
-									class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium"
-								/>
+								@addressAutocomplete("cc", "cc", "Cc", cc, false)
 							</div>
 
 							<!-- Bcc Address -->
 							<div x-show="showBcc" x-cloak>
 								<label for="bcc" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">Bcc</label>
-								<input 
-									type="text" 
-									id="bcc" 
-									name="bcc" 
-									value={ bcc }
-									placeholder="bcc@example.com"
-									class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium"
-								/>
+								@addressAutocomplete("bcc", "bcc", "Bcc", bcc, false)
 							</div>
 						</div>
 

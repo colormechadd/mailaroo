@@ -41,6 +41,15 @@ type WebDB interface {
 	DeleteDraft(ctx context.Context, draftID, userID uuid.UUID) error
 	GetDraftsByMailboxID(ctx context.Context, mailboxID, userID uuid.UUID) ([]models.Draft, error)
 	CountDraftsByMailboxID(ctx context.Context, mailboxID, userID uuid.UUID) (int, error)
+
+	ListContacts(ctx context.Context, userID uuid.UUID) ([]models.Contact, error)
+	SearchContacts(ctx context.Context, userID uuid.UUID, query string) ([]models.Contact, error)
+	GetContactByID(ctx context.Context, contactID, userID uuid.UUID) (*models.Contact, error)
+	CreateContact(ctx context.Context, c models.Contact) (*models.Contact, error)
+	UpdateContact(ctx context.Context, c models.Contact) error
+	DeleteContact(ctx context.Context, contactID, userID uuid.UUID) error
+	ToggleContactFavorite(ctx context.Context, contactID, userID uuid.UUID) error
+	UpsertContactFromEmail(ctx context.Context, userID uuid.UUID, email, firstName, lastName string) error
 }
 
 func (db *DB) CreateWebmailSession(ctx context.Context, userID uuid.UUID, token string, remoteIP, userAgent string, expires time.Time) error {

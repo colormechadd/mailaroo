@@ -13,7 +13,8 @@ import (
 	"github.com/colormechadd/maileroo/pkg/models"
 )
 
-func Compose(addresses []models.SendingAddress, fromID, to, cc, bcc, subject, inReplyTo, references, draftID, title, body, bodyHTML string) templ.Component {
+// addressAutocomplete wraps an address input with contact search dropdown.
+func addressAutocomplete(fieldID, fieldName, label, value string, required bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -34,259 +35,348 @@ func Compose(addresses []models.SendingAddress, fromID, to, cc, bcc, subject, in
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		startIsHTML := bodyHTML != "" || body == ""
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex-1 flex flex-col h-full bg-white overflow-hidden animate-in slide-in-from-bottom-4 duration-300\" x-data=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"relative\" x-data=\"{\n\t\t\topen: false,\n\t\t\tresults: [],\n\t\t\tsearch(val) {\n\t\t\t\tconst parts = val.split(',');\n\t\t\t\tconst q = parts[parts.length - 1].trim();\n\t\t\t\tif (q.length < 2) { this.open = false; return; }\n\t\t\t\tfetch('/contacts/search?q=' + encodeURIComponent(q))\n\t\t\t\t\t.then(r => r.json())\n\t\t\t\t\t.then(data => { this.results = data; this.open = data.length > 0; });\n\t\t\t},\n\t\t\tselect(input, display) {\n\t\t\t\tconst parts = input.value.split(',');\n\t\t\t\tparts[parts.length - 1] = ' ' + display;\n\t\t\t\tinput.value = parts.join(',') + ', ';\n\t\t\t\tthis.open = false;\n\t\t\t\tinput.focus();\n\t\t\t}\n\t\t}\" @click.outside=\"open = false\"><input type=\"text\" id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("{ sending: false, attachments: [], isHTML: %v, showCc: %v, showBcc: %v, handleFiles(files) { Array.from(files).forEach(file => { if (!this.attachments.find(a => a.name === file.name && a.size === file.size)) { this.attachments.push(file); } }); this.syncFiles(); }, removeFile(index) { this.attachments.splice(index, 1); this.syncFiles(); }, syncFiles() { const dt = new DataTransfer(); this.attachments.forEach(file => dt.items.add(file)); this.$refs.fileInput.files = dt.files; } }", startIsHTML, cc != "", bcc != ""))
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fieldID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 13, Col: 544}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 36, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><header class=\"h-16 border-b border-purple-100 flex items-center justify-between px-8 bg-white/80 backdrop-blur-sm sticky top-0 z-10\"><div class=\"flex items-center space-x-4\"><h2 class=\"text-lg font-bold text-gray-900 uppercase tracking-tight\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" name=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fieldName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 16, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 37, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</h2><div class=\"flex items-center bg-gray-100 rounded-lg p-1 ml-4\"><button type=\"button\" @click=\"isHTML = false\" class=\"px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer\" :class=\"!isHTML ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'\">Plain Text</button> <button type=\"button\" @click=\"isHTML = true\" class=\"px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer\" :class=\"isHTML ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'\">Rich Text</button></div></div><button class=\"text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-2 hover:bg-gray-100 rounded-full\" hx-get=\"/mailbox\" hx-target=\"#main-content\" hx-push-url=\"true\" title=\"Cancel\"><svg class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></header><div class=\"flex-1 overflow-y-auto p-8\"><div class=\"max-w-4xl mx-auto\"><!-- Auto-save draft trigger: fires on any change to the form after 2s inactivity --><div hx-post=\"/draft\" hx-trigger=\"change from:#compose-form delay:2s\" hx-include=\"#compose-form\" hx-target=\"#draft-status\" hx-swap=\"innerHTML\"></div><form id=\"compose-form\" hx-post=\"/send\" hx-target=\"#main-content\" hx-encoding=\"multipart/form-data\" @submit=\"sending = true\" class=\"space-y-6\"><div class=\"grid grid-cols-1 gap-6\"><!-- From Address --><div><label for=\"from_id\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">From</label><div class=\"relative\"><select id=\"from_id\" name=\"from_id\" required class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all cursor-pointer appearance-none font-medium\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, addr := range addresses {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<option value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(addr.ID.String())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 74, Col: 42}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if addr.ID.String() == fromID {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " selected")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, ">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if addr.DisplayName != nil && *addr.DisplayName != "" {
-				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(*addr.DisplayName)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 76, Col: 31}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " &lt;")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var6 string
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(addr.Address)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 76, Col: 52}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "&gt;")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				var templ_7745c5c3_Var7 string
-				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(addr.Address)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 78, Col: 26}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</option>")
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(value)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 38, Col: 16}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if required {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " required")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</select><div class=\"pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 9l-7 7-7-7\"></path></svg></div></div></div><!-- To Address --><div class=\"space-y-4\"><div><div class=\"flex items-center justify-between mb-2 px-1\"><label for=\"to\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider\">To</label><div class=\"flex space-x-2\"><button type=\"button\" @click=\"showCc = !showCc\" class=\"text-[10px] font-bold text-purple-600 hover:text-purple-700 uppercase tracking-widest cursor-pointer\">Cc</button> <button type=\"button\" @click=\"showBcc = !showBcc\" class=\"text-[10px] font-bold text-purple-600 hover:text-purple-700 uppercase tracking-widest cursor-pointer\">Bcc</button></div></div><input type=\"text\" id=\"to\" name=\"to\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " placeholder=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fieldName + "@example.com")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 40, Col: 43}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" autocomplete=\"off\" @input.debounce.300ms=\"search($event.target.value)\" @keydown.escape=\"open = false\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium\"><div x-show=\"open\" x-cloak class=\"absolute z-30 top-full left-0 right-0 bg-white border border-purple-100 rounded-xl shadow-xl mt-1 overflow-hidden\"><template x-for=\"c in results\" :key=\"c.id\"><button type=\"button\" @mousedown.prevent=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("select($el.closest('[x-data]').querySelector('input[name=%q]'), c.display)", fieldName))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 54, Col: 126}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" class=\"w-full text-left px-4 py-2.5 hover:bg-purple-50 flex items-center gap-3 transition-colors\"><div class=\"h-7 w-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold shrink-0\" x-text=\"c.initials\"></div><div class=\"flex-1 min-w-0\"><div class=\"text-sm font-medium text-gray-900 truncate\" x-text=\"c.name || c.email\"></div><div class=\"text-xs text-gray-500 truncate\" x-text=\"c.email\" x-show=\"c.name\"></div></div></button></template></div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func Compose(addresses []models.SendingAddress, fromID, to, cc, bcc, subject, inReplyTo, references, draftID, title, body, bodyHTML string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var7 == nil {
+			templ_7745c5c3_Var7 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		startIsHTML := bodyHTML != "" || body == ""
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"flex-1 flex flex-col h-full bg-white overflow-hidden animate-in slide-in-from-bottom-4 duration-300\" x-data=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(to)
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("{ sending: false, attachments: [], isHTML: %v, showCc: %v, showBcc: %v, handleFiles(files) { Array.from(files).forEach(file => { if (!this.attachments.find(a => a.name === file.name && a.size === file.size)) { this.attachments.push(file); } }); this.syncFiles(); }, removeFile(index) { this.attachments.splice(index, 1); this.syncFiles(); }, syncFiles() { const dt = new DataTransfer(); this.attachments.forEach(file => dt.items.add(file)); this.$refs.fileInput.files = dt.files; } }", startIsHTML, cc != "", bcc != ""))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 106, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 73, Col: 544}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" placeholder=\"recipient@example.com\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium\"></div><!-- Cc Address --><div x-show=\"showCc\" x-cloak><label for=\"cc\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Cc</label> <input type=\"text\" id=\"cc\" name=\"cc\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"><header class=\"h-16 border-b border-purple-100 flex items-center justify-between px-8 bg-white/80 backdrop-blur-sm sticky top-0 z-10\"><div class=\"flex items-center space-x-4\"><h2 class=\"text-lg font-bold text-gray-900 uppercase tracking-tight\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(cc)
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 119, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 76, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" placeholder=\"cc@example.com\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium\"></div><!-- Bcc Address --><div x-show=\"showBcc\" x-cloak><label for=\"bcc\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Bcc</label> <input type=\"text\" id=\"bcc\" name=\"bcc\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</h2><div class=\"flex items-center bg-gray-100 rounded-lg p-1 ml-4\"><button type=\"button\" @click=\"isHTML = false\" class=\"px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer\" :class=\"!isHTML ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'\">Plain Text</button> <button type=\"button\" @click=\"isHTML = true\" class=\"px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer\" :class=\"isHTML ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'\">Rich Text</button></div></div><button class=\"text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-2 hover:bg-gray-100 rounded-full\" hx-get=\"/mailbox\" hx-target=\"#main-content\" hx-push-url=\"true\" title=\"Cancel\"><svg class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></header><div class=\"flex-1 overflow-y-auto p-8\"><div class=\"max-w-4xl mx-auto\"><!-- Auto-save draft trigger: fires on any change to the form after 2s inactivity --><div hx-post=\"/draft\" hx-trigger=\"change from:#compose-form delay:2s\" hx-include=\"#compose-form\" hx-target=\"#draft-status\" hx-swap=\"innerHTML\"></div><form id=\"compose-form\" hx-post=\"/send\" hx-target=\"#main-content\" hx-encoding=\"multipart/form-data\" @submit=\"sending = true\" class=\"space-y-6\"><div class=\"grid grid-cols-1 gap-6\"><!-- From Address --><div><label for=\"from_id\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">From</label><div class=\"relative\"><select id=\"from_id\" name=\"from_id\" required class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all cursor-pointer appearance-none font-medium\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(bcc)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 132, Col: 20}
+		for _, addr := range addresses {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<option value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var10 string
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(addr.ID.String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 134, Col: 42}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if addr.ID.String() == fromID {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " selected")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, ">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if addr.DisplayName != nil && *addr.DisplayName != "" {
+				var templ_7745c5c3_Var11 string
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(*addr.DisplayName)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 136, Col: 31}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " &lt;")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var12 string
+				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(addr.Address)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 136, Col: 52}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "&gt;")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				var templ_7745c5c3_Var13 string
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(addr.Address)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 138, Col: 26}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</option>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</select><div class=\"pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 9l-7 7-7-7\"></path></svg></div></div></div><!-- To Address --><div class=\"space-y-4\"><div><div class=\"flex items-center justify-between mb-2 px-1\"><label for=\"to\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider\">To</label><div class=\"flex space-x-2\"><button type=\"button\" @click=\"showCc = !showCc\" class=\"text-[10px] font-bold text-purple-600 hover:text-purple-700 uppercase tracking-widest cursor-pointer\">Cc</button> <button type=\"button\" @click=\"showBcc = !showBcc\" class=\"text-[10px] font-bold text-purple-600 hover:text-purple-700 uppercase tracking-widest cursor-pointer\">Bcc</button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" placeholder=\"bcc@example.com\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium\"></div></div><!-- Subject --><div><label for=\"subject\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Subject</label> <input type=\"text\" id=\"subject\" name=\"subject\" required value=\"")
+		templ_7745c5c3_Err = addressAutocomplete("to", "to", "To", to, true).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(subject)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 147, Col: 23}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><!-- Cc Address --><div x-show=\"showCc\" x-cloak><label for=\"cc\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Cc</label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" placeholder=\"Enter subject...\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium\"></div><input type=\"hidden\" name=\"in_reply_to\" value=\"")
+		templ_7745c5c3_Err = addressAutocomplete("cc", "cc", "Cc", cc, false).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(inReplyTo)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 153, Col: 63}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><!-- Bcc Address --><div x-show=\"showBcc\" x-cloak><label for=\"bcc\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Bcc</label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"> <input type=\"hidden\" name=\"references\" value=\"")
+		templ_7745c5c3_Err = addressAutocomplete("bcc", "bcc", "Bcc", bcc, false).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(references)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 154, Col: 63}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"> <input type=\"hidden\" name=\"draft_id\" id=\"draft-id-input\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div></div><!-- Subject --><div><label for=\"subject\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Subject</label> <input type=\"text\" id=\"subject\" name=\"subject\" required value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(draftID)
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(subject)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 155, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 185, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"><!-- Body --><div class=\"space-y-2\"><label for=\"body\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\"><span x-show=\"!isHTML\">Message (Plain Text)</span> <span x-show=\"isHTML\">Message (Rich Text)</span></label><!-- Rich Text Editor (Trix) --><div x-show=\"isHTML\" class=\"border border-purple-100 focus-within:border-purple-500 transition-all rounded-xl bg-white overflow-hidden shadow-sm\"><input id=\"body_html\" type=\"hidden\" name=\"body_html\"> <trix-editor input=\"body_html\" class=\"trix-content outline-none font-sans text-gray-800 leading-relaxed\" data-forward-html=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" placeholder=\"Enter subject...\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all font-medium\"></div><input type=\"hidden\" name=\"in_reply_to\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(bodyHTML)
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(inReplyTo)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 167, Col: 141}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 191, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" x-init=\"$el.addEventListener('trix-initialize', () => { const h = $el.dataset.forwardHtml; if (h) $el.editor.loadHTML(h) })\"></trix-editor></div><!-- Plain Text Fallback --><div x-show=\"!isHTML\"><textarea id=\"body\" name=\"body\" rows=\"12\" :required=\"!isHTML\" placeholder=\"Write your message here...\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-4 text-gray-900 transition-all resize-none font-sans leading-relaxed\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"> <input type=\"hidden\" name=\"references\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(body)
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(references)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 179, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 192, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</textarea></div></div><!-- Attachments --><div><label class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Attachments</label><div class=\"space-y-4\"><div class=\"flex items-center justify-center w-full\"><label class=\"flex flex-col items-center justify-center w-full h-32 border-2 border-purple-100 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-purple-50 transition-colors\"><div class=\"flex flex-col items-center justify-center pt-5 pb-6\"><svg class=\"w-8 h-8 mb-3 text-purple-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12\"></path></svg><p class=\"mb-2 text-sm text-gray-500\"><span class=\"font-bold text-purple-600\">Click to upload</span> or drag and drop</p><p class=\"text-xs text-gray-400\">Any file up to 50MB</p></div><input type=\"file\" name=\"attachments\" x-ref=\"fileInput\" class=\"hidden\" multiple @change=\"handleFiles($event.target.files)\"></label></div><template x-if=\"attachments.length > 0\"><div class=\"flex flex-wrap gap-2\"><template x-for=\"(file, index) in attachments\" :key=\"file.name + file.lastModified\"><div class=\"flex items-center bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg border border-purple-100 text-sm font-medium animate-in zoom-in-95 duration-200 group\"><svg class=\"w-4 h-4 mr-2\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13\"></path></svg> <span x-text=\"file.name\"></span> <span class=\"ml-2 text-[10px] text-purple-400 uppercase\" x-text=\"(file.size / 1024).toFixed(1) + ' KB'\"></span> <button type=\"button\" @click=\"removeFile(index)\" class=\"ml-3 text-purple-300 hover:text-red-500 transition-colors cursor-pointer\" title=\"Remove attachment\"><svg class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></template></div></template></div></div></div><div class=\"pt-4 flex items-center justify-between\"><div class=\"flex items-center gap-4\"><div class=\"flex items-center text-gray-400 text-sm italic\" x-show=\"sending\" x-cloak><svg class=\"animate-spin -ml-1 mr-3 h-5 w-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle> <path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg> Sending message...</div><span id=\"draft-status\" class=\"text-xs text-gray-400 italic\" x-show=\"!sending\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\"> <input type=\"hidden\" name=\"draft_id\" id=\"draft-id-input\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var17 string
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(draftID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 193, Col: 78}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"><!-- Body --><div class=\"space-y-2\"><label for=\"body\" class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\"><span x-show=\"!isHTML\">Message (Plain Text)</span> <span x-show=\"isHTML\">Message (Rich Text)</span></label><!-- Rich Text Editor (Trix) --><div x-show=\"isHTML\" class=\"border border-purple-100 focus-within:border-purple-500 transition-all rounded-xl bg-white overflow-hidden shadow-sm\"><input id=\"body_html\" type=\"hidden\" name=\"body_html\"> <trix-editor input=\"body_html\" class=\"trix-content outline-none font-sans text-gray-800 leading-relaxed\" data-forward-html=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(bodyHTML)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 205, Col: 141}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" x-init=\"$el.addEventListener('trix-initialize', () => { const h = $el.dataset.forwardHtml; if (h) $el.editor.loadHTML(h) })\"></trix-editor></div><!-- Plain Text Fallback --><div x-show=\"!isHTML\"><textarea id=\"body\" name=\"body\" rows=\"12\" :required=\"!isHTML\" placeholder=\"Write your message here...\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-4 text-gray-900 transition-all resize-none font-sans leading-relaxed\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(body)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 217, Col: 15}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</textarea></div></div><!-- Attachments --><div><label class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-1\">Attachments</label><div class=\"space-y-4\"><div class=\"flex items-center justify-center w-full\"><label class=\"flex flex-col items-center justify-center w-full h-32 border-2 border-purple-100 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-purple-50 transition-colors\"><div class=\"flex flex-col items-center justify-center pt-5 pb-6\"><svg class=\"w-8 h-8 mb-3 text-purple-400\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12\"></path></svg><p class=\"mb-2 text-sm text-gray-500\"><span class=\"font-bold text-purple-600\">Click to upload</span> or drag and drop</p><p class=\"text-xs text-gray-400\">Any file up to 50MB</p></div><input type=\"file\" name=\"attachments\" x-ref=\"fileInput\" class=\"hidden\" multiple @change=\"handleFiles($event.target.files)\"></label></div><template x-if=\"attachments.length > 0\"><div class=\"flex flex-wrap gap-2\"><template x-for=\"(file, index) in attachments\" :key=\"file.name + file.lastModified\"><div class=\"flex items-center bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg border border-purple-100 text-sm font-medium animate-in zoom-in-95 duration-200 group\"><svg class=\"w-4 h-4 mr-2\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13\"></path></svg> <span x-text=\"file.name\"></span> <span class=\"ml-2 text-[10px] text-purple-400 uppercase\" x-text=\"(file.size / 1024).toFixed(1) + ' KB'\"></span> <button type=\"button\" @click=\"removeFile(index)\" class=\"ml-3 text-purple-300 hover:text-red-500 transition-colors cursor-pointer\" title=\"Remove attachment\"><svg class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></template></div></template></div></div></div><div class=\"pt-4 flex items-center justify-between\"><div class=\"flex items-center gap-4\"><div class=\"flex items-center text-gray-400 text-sm italic\" x-show=\"sending\" x-cloak><svg class=\"animate-spin -ml-1 mr-3 h-5 w-5 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle> <path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\"></path></svg> Sending message...</div><span id=\"draft-status\" class=\"text-xs text-gray-400 italic\" x-show=\"!sending\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if draftID != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "Draft saved")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "Draft saved")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if draftID != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<button type=\"button\" hx-delete=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<button type=\"button\" hx-delete=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var17 string
-			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("/draft/" + draftID)
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("/draft/" + draftID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 252, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/compose.templ`, Line: 290, Col: 40}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" hx-confirm=\"Discard this draft?\" class=\"text-xs text-red-400 hover:text-red-600 transition-colors cursor-pointer\" x-show=\"!sending\">Discard draft</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" hx-confirm=\"Discard this draft?\" class=\"text-xs text-red-400 hover:text-red-600 transition-colors cursor-pointer\" x-show=\"!sending\">Discard draft</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div><div class=\"flex space-x-4\"><button type=\"submit\" x-bind:disabled=\"sending\" class=\"inline-flex items-center px-8 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 text-white rounded-xl font-bold shadow-lg shadow-teal-100 transition-all cursor-pointer group\"><span x-show=\"!sending\">Send Message</span> <span x-show=\"sending\">Sending...</span> <svg class=\"ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" x-show=\"!sending\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M14 5l7 7m0 0l-7 7m7-7H3\"></path></svg></button></div></div></form></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div><div class=\"flex space-x-4\"><button type=\"submit\" x-bind:disabled=\"sending\" class=\"inline-flex items-center px-8 py-3 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 text-white rounded-xl font-bold shadow-lg shadow-teal-100 transition-all cursor-pointer group\"><span x-show=\"!sending\">Send Message</span> <span x-show=\"sending\">Sending...</span> <svg class=\"ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" x-show=\"!sending\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M14 5l7 7m0 0l-7 7m7-7H3\"></path></svg></button></div></div></form></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

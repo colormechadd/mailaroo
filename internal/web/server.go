@@ -148,6 +148,14 @@ func (s *Server) Routes() http.Handler {
 
 		r.Post("/draft", s.handleDraftSave)
 		r.Delete("/draft/{draftID}", s.handleDraftDelete)
+
+		r.Get("/contacts", s.handleContactsPage)
+		r.Get("/contacts/search", s.handleContactSearch)
+		r.Post("/contacts", s.handleContactCreate)
+		r.Put("/contacts/{contactID}", s.handleContactUpdate)
+		r.Delete("/contacts/{contactID}", s.handleContactDelete)
+		r.Post("/contacts/{contactID}/favorite", s.handleContactToggleFavorite)
+		r.Post("/email/{emailID}/add-contact", s.handleAddContactFromEmail)
 	})
 
 	return csrfMiddleware(r)
@@ -173,6 +181,11 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 	body := ""
 	bodyHTML := ""
 	draftID := ""
+
+	// Pre-fill To from query param (e.g. from contacts page)
+	if toParam := r.URL.Query().Get("to"); toParam != "" {
+		to = toParam
+	}
 
 	// Resume a saved draft
 	draftIDRaw := r.URL.Query().Get("draft")

@@ -130,6 +130,14 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 					<div>
 						<div class="flex items-center space-x-2">
 							<p class="font-bold text-gray-900">{ email.FromAddress }</p>
+							<button
+								type="button"
+								hx-post={ "/email/" + email.ID.String() + "/add-contact" }
+								hx-target="#main-content"
+								hx-push-url="/contacts"
+								title="Add to Contacts"
+								class="text-xs text-purple-400 hover:text-purple-600 font-medium transition-colors cursor-pointer"
+							>+ Add to Contacts</button>
 						</div>
 						<p class="text-gray-500 text-sm">to { email.ToAddress }</p>
 					</div>
