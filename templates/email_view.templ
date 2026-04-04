@@ -173,8 +173,15 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 
 		<div class="flex-1 overflow-y-auto p-10 max-w-4xl mx-auto w-full">
 			if isHTML {
-				<div class="email-body-html prose prose-purple max-w-none">
-					@templ.Raw(body)
+				<div class="email-body-html">
+					<iframe
+						srcdoc={ body }
+						sandbox=""
+						class="w-full border-none"
+						style="min-height: 400px; display: block;"
+						title="Email body"
+						onload="this.style.height=(this.contentDocument.documentElement.scrollHeight+32)+'px'"
+					></iframe>
 				</div>
 			} else {
 				<div class="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed text-base">

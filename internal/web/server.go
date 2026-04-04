@@ -384,6 +384,19 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	if s.Config.RateLimit.OutboundPerUserHour > 0 {
+		count, err := s.RateLimitDB.CountOutboundByUserHour(r.Context(), user.ID)
+		if err != nil {
+			slog.Error("failed to check outbound rate limit", "user_id", user.ID, "error", err)
+			http.Error(w, "Failed to check rate limit", http.StatusInternalServerError)
+			return
+		}
+		if count >= s.Config.RateLimit.OutboundPerUserHour {
+			http.Error(w, "Hourly sending limit reached, please try again later", http.StatusTooManyRequests)
+			return
+		}
+	}
+
 	rawBytes, from, recipients, err := s.Sender.BuildMessage(outMsg)
 	if err != nil {
 		slog.Error("failed to build outbound message", "user_id", user.ID, "error", err)
@@ -404,16 +417,6 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
 		http.Error(w, "Failed to save email", http.StatusInternalServerError)
 		return
-	}
-
-	if s.Config.RateLimit.OutboundPerUserHour > 0 {
-		count, err := s.RateLimitDB.CountOutboundByUserHour(r.Context(), user.ID)
-		if err != nil {
-			slog.Error("failed to check outbound rate limit", "user_id", user.ID, "error", err)
-		} else if count >= s.Config.RateLimit.OutboundPerUserHour {
-			http.Error(w, "Hourly sending limit reached, please try again later", http.StatusTooManyRequests)
-			return
-		}
 	}
 
 	if _, err := s.DB.InsertOutboundJob(r.Context(), &email.ID, from, recipients, rawBytes); err != nil {
