@@ -226,7 +226,7 @@ func (m *MTA) deliverToRelay(address string, from string, to []string, msg []byt
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		config := &tls.Config{ServerName: host}
 		if err := c.StartTLS(config); err != nil {
-			slog.Warn("relay starttls failed, falling back to plain", "relay", address, "error", err)
+			slog.Error("relay starttls failed, delivering in plaintext", "relay", address, "error", err)
 		}
 	}
 
@@ -288,7 +288,7 @@ func (m *MTA) deliverToDomain(domain string, from string, to []string, msg []byt
 		if ok, _ := c.Extension("STARTTLS"); ok {
 			config := &tls.Config{ServerName: mx.Host}
 			if err := c.StartTLS(config); err != nil {
-				slog.Warn("starttls failed, falling back to plain", "mx", mx.Host, "error", err)
+				slog.Error("starttls failed, delivering in plaintext", "mx", mx.Host, "error", err)
 			}
 		}
 

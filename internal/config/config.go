@@ -73,6 +73,7 @@ type Config struct {
 
 	Web struct {
 		CSRFAuthKey string `mapstructure:"CSRF_AUTH_KEY"`
+		TrustProxy  bool   `mapstructure:"TRUST_PROXY"`
 	} `mapstructure:"WEB"`
 
 	LocalStorage LocalStorageConfig `mapstructure:"LOCAL_STORAGE"`
@@ -88,6 +89,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("SPAM.QUARANTINE_THRESHOLD", 5.0)
 
 	viper.SetDefault("WEB_PORT", 8080)
+	viper.SetDefault("WEB.TRUST_PROXY", false)
 	viper.SetDefault("SMTP.PORTS", []int{25})
 	viper.SetDefault("SMTP.DOMAIN", "localhost")
 	viper.SetDefault("SMTP.READ_TIMEOUT", 10*time.Second)
@@ -160,6 +162,12 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.Int("web-port", 8080, "Web server port")
 	viper.BindPFlag("WEB_PORT", fs.Lookup("web-port"))
 
+	fs.String("web-csrf-auth-key", "", "Base64-encoded 32-byte key for CSRF protection")
+	viper.BindPFlag("WEB.CSRF_AUTH_KEY", fs.Lookup("web-csrf-auth-key"))
+
+	fs.Bool("web-trust-proxy", false, "Trust X-Forwarded-For / X-Real-IP headers from a reverse proxy")
+	viper.BindPFlag("WEB.TRUST_PROXY", fs.Lookup("web-trust-proxy"))
+
 	fs.String("log-level", "info", "Log level (debug, info, warn, error)")
 	viper.BindPFlag("LOG.LEVEL", fs.Lookup("log-level"))
 
@@ -198,6 +206,27 @@ func BindFlags(fs *pflag.FlagSet) {
 
 	fs.String("smtp-tls-key-file", "", "SMTP TLS key file")
 	viper.BindPFlag("SMTP.TLS_KEY_FILE", fs.Lookup("smtp-tls-key-file"))
+
+	fs.String("smtp-relay", "", "Optional smarthost relay for outbound mail (e.g. localhost:1025)")
+	viper.BindPFlag("SMTP.RELAY", fs.Lookup("smtp-relay"))
+
+	fs.Int("rate-limit-smtp-connections-per-minute", 10, "Max inbound SMTP connections per IP per minute")
+	viper.BindPFlag("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE", fs.Lookup("rate-limit-smtp-connections-per-minute"))
+
+	fs.Int("rate-limit-smtp-auto-block-threshold", 30, "Connection count that triggers an automatic IP block")
+	viper.BindPFlag("RATE_LIMIT.SMTP_AUTO_BLOCK_THRESHOLD", fs.Lookup("rate-limit-smtp-auto-block-threshold"))
+
+	fs.Duration("rate-limit-smtp-auto-block-duration", time.Hour, "Duration of an automatic IP block")
+	viper.BindPFlag("RATE_LIMIT.SMTP_AUTO_BLOCK_DURATION", fs.Lookup("rate-limit-smtp-auto-block-duration"))
+
+	fs.Int("rate-limit-outbound-per-user-hour", 100, "Max outbound emails per user per hour")
+	viper.BindPFlag("RATE_LIMIT.OUTBOUND_PER_USER_HOUR", fs.Lookup("rate-limit-outbound-per-user-hour"))
+
+	fs.Bool("rate-limit-greylist-enabled", false, "Enable greylisting for inbound SMTP")
+	viper.BindPFlag("RATE_LIMIT.GREYLIST_ENABLED", fs.Lookup("rate-limit-greylist-enabled"))
+
+	fs.Duration("rate-limit-greylist-delay", time.Minute, "Greylist delay duration")
+	viper.BindPFlag("RATE_LIMIT.GREYLIST_DELAY", fs.Lookup("rate-limit-greylist-delay"))
 
 	fs.String("dkim-encryption-key", "", "Base64-encoded 32-byte AES-256 key for encrypting DKIM private keys")
 	viper.BindPFlag("DKIM.ENCRYPTION_KEY", fs.Lookup("dkim-encryption-key"))
