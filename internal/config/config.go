@@ -74,6 +74,8 @@ type Config struct {
 	Web struct {
 		CSRFAuthKey string `mapstructure:"CSRF_AUTH_KEY"`
 		TrustProxy  bool   `mapstructure:"TRUST_PROXY"`
+		CertFile    string `mapstructure:"CERT_FILE"`
+		CertKeyFile string `mapstructure:"CERT_KEY_FILE"`
 	} `mapstructure:"WEB"`
 
 	LocalStorage LocalStorageConfig `mapstructure:"LOCAL_STORAGE"`
@@ -90,6 +92,9 @@ func LoadConfig() (*Config, error) {
 
 	viper.SetDefault("WEB_PORT", 8080)
 	viper.SetDefault("WEB.TRUST_PROXY", false)
+	viper.SetDefault("WEB.CSRF_SECURE", true)
+	viper.SetDefault("WEB.CERT_FILE", "")
+	viper.SetDefault("WEB.CERT_KEY_FILE", "")
 	viper.SetDefault("SMTP.PORTS", []int{25})
 	viper.SetDefault("SMTP.DOMAIN", "localhost")
 	viper.SetDefault("SMTP.READ_TIMEOUT", 10*time.Second)
@@ -155,6 +160,20 @@ func LoadConfig() (*Config, error) {
 	return &cfg, nil
 }
 
+// HideFlags marks every flag in fs as hidden so it is omitted from brief usage output.
+func HideFlags(fs *pflag.FlagSet) {
+	fs.VisitAll(func(f *pflag.Flag) {
+		fs.MarkHidden(f.Name)
+	})
+}
+
+// UnhideFlags clears the Hidden bit on every flag in fs.
+func UnhideFlags(fs *pflag.FlagSet) {
+	fs.VisitAll(func(f *pflag.Flag) {
+		f.Hidden = false
+	})
+}
+
 func BindFlags(fs *pflag.FlagSet) {
 	fs.String("database-url", "", "Database connection URL")
 	viper.BindPFlag("DATABASE_URL", fs.Lookup("database-url"))
@@ -164,6 +183,12 @@ func BindFlags(fs *pflag.FlagSet) {
 
 	fs.String("web-csrf-auth-key", "", "Base64-encoded 32-byte key for CSRF protection")
 	viper.BindPFlag("WEB.CSRF_AUTH_KEY", fs.Lookup("web-csrf-auth-key"))
+
+	fs.String("web-cert-file", "", "Certificate file for web application")
+	viper.BindPFlag("WEB.CERT_FILE", fs.Lookup("web-cert-file"))
+
+	fs.String("web-cert-key-file", "", "Certificate key file for web application")
+	viper.BindPFlag("WEB.CERT_KEY_FILE", fs.Lookup("web-cert-key-file"))
 
 	fs.Bool("web-trust-proxy", false, "Trust X-Forwarded-For / X-Real-IP headers from a reverse proxy")
 	viper.BindPFlag("WEB.TRUST_PROXY", fs.Lookup("web-trust-proxy"))

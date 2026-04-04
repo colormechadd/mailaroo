@@ -37,7 +37,7 @@ COPY --from=builder /app/static ./static
 COPY --from=builder /app/db/migrations ./db/migrations
 
 # Standard SMTP ports + Web UI
-EXPOSE 25 465 587 2525 8080
+EXPOSE 25 2525 8080
 
 # The root command of the binary starts the server by default
 ENTRYPOINT ["./maileroo"]

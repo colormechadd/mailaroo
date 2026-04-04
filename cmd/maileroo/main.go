@@ -32,6 +32,16 @@ var (
 
 func init() {
 	config.BindFlags(rootCmd.PersistentFlags())
+
+	// Hide config flags from the brief usage shown on errors.
+	config.HideFlags(rootCmd.PersistentFlags())
+
+	// When --help is explicitly requested, show all flags including the hidden ones.
+	defaultHelp := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		config.UnhideFlags(cmd.PersistentFlags())
+		defaultHelp(cmd, args)
+	})
 }
 
 var rootCmd = &cobra.Command{
@@ -178,8 +188,16 @@ func runServe() {
 
 	// Start Web server (Chi)
 	go func() {
-		slog.Info("Starting Webmail interface", "port", cfg.WebPort)
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.WebPort), webServer.Routes()); err != nil {
+		if len(cfg.Web.CertFile) > 0 && len(cfg.Web.CertKeyFile) > 0 {
+			slog.Info("Starting Secure Webmail interface", "port", cfg.WebPort)
+
+			err = http.ListenAndServeTLS(fmt.Sprintf(":%d", cfg.WebPort), cfg.Web.CertFile, cfg.Web.CertKeyFile, webServer.Routes())
+		} else {
+			slog.Info("Starting Webmail interface", "port", cfg.WebPort)
+			err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.WebPort), webServer.Routes())
+		}
+
+		if err != nil {
 			slog.Error("Web server failed", "error", err)
 		}
 	}()
