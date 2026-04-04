@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -18,26 +19,54 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// NewClient returns a Client pointed at baseURL.
-// Returns nil if baseURL is empty, so callers can guard with a nil check.
-func NewClient(baseURL string) *Client {
-	if baseURL == "" {
+// NewClient returns a Client for the given address.
+// Returns nil if addr is empty, so callers can guard with a nil check.
+//
+// Two address forms are accepted:
+//
+//	http://host:port          — plain TCP
+//	unix:///path/to/sock      — Unix domain socket
+func NewClient(addr string) *Client {
+	if addr == "" {
 		return nil
 	}
-	return &Client{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{
+
+	var (
+		baseURL    string
+		httpClient *http.Client
+	)
+
+	if strings.HasPrefix(addr, "unix://") {
+		socketPath := strings.TrimPrefix(addr, "unix://")
+		transport := &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+			},
+		}
+		baseURL = "http://localhost"
+		httpClient = &http.Client{
+			Transport: transport,
+			Timeout:   10 * time.Second,
+		}
+	} else {
+		baseURL = strings.TrimRight(addr, "/")
+		httpClient = &http.Client{
 			Timeout: 10 * time.Second,
-		},
+		}
+	}
+
+	return &Client{
+		baseURL:    baseURL,
+		httpClient: httpClient,
 	}
 }
 
 // CheckResult holds the fields returned by rspamd's /checkv2 endpoint.
 type CheckResult struct {
-	Score         float64            `json:"score"`
-	RequiredScore float64            `json:"required_score"`
-	Action        string             `json:"action"`
-	Symbols       map[string]Symbol  `json:"symbols"`
+	Score         float64           `json:"score"`
+	RequiredScore float64           `json:"required_score"`
+	Action        string            `json:"action"`
+	Symbols       map[string]Symbol `json:"symbols"`
 }
 
 // Symbol is a single rspamd rule that fired.

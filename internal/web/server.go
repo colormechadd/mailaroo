@@ -36,14 +36,7 @@ import (
 )
 
 type Server struct {
-	cfg         config.Config
-	db          db.WebDB
-	rateLimitDB db.RateLimitDB
-	storage     storage.Storage
-	hub         *Hub
-	sender      outbound.Sender
-	mail        *mail.Service
-	rspamd      *rspamd.Client
+	ServerConfig
 
 	loginMu       sync.Mutex
 	loginLimiters map[string]*loginEntry
@@ -82,16 +75,20 @@ func (s *Server) cleanupLoginLimiters() {
 	}
 }
 
-func NewServer(cfg config.Config, webDB db.WebDB, rateLimitDB db.RateLimitDB, storage storage.Storage, hub *Hub, sender outbound.Sender, mailSvc *mail.Service, rspamdClient *rspamd.Client) *Server {
+type ServerConfig struct {
+	Config      config.Config
+	DB          db.WebDB
+	RateLimitDB db.RateLimitDB
+	Storage     storage.Storage
+	Hub         *Hub
+	Sender      outbound.Sender
+	Mail        *mail.Service
+	Rspamd      *rspamd.Client
+}
+
+func NewServer(cfg ServerConfig) *Server {
 	s := &Server{
-		cfg:           cfg,
-		db:            webDB,
-		rateLimitDB:   rateLimitDB,
-		storage:       storage,
-		hub:           hub,
-		sender:        sender,
-		mail:          mailSvc,
-		rspamd:        rspamdClient,
+		ServerConfig:  cfg,
 		loginLimiters: make(map[string]*loginEntry),
 	}
 	go s.cleanupLoginLimiters()
@@ -99,7 +96,7 @@ func NewServer(cfg config.Config, webDB db.WebDB, rateLimitDB db.RateLimitDB, st
 }
 
 func (s *Server) Routes() http.Handler {
-	csrfKey, err := base64.StdEncoding.DecodeString(s.cfg.Web.CSRFAuthKey)
+	csrfKey, err := base64.StdEncoding.DecodeString(s.Config.Web.CSRFAuthKey)
 	if err != nil || len(csrfKey) != 32 {
 		panic("WEB_CSRF_AUTH_KEY must be a base64-encoded 32-byte key")
 	}
@@ -168,7 +165,7 @@ func (s *Server) Routes() http.Handler {
 
 func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	addresses, err := s.db.GetActiveSendingAddresses(r.Context(), user.ID)
+	addresses, err := s.DB.GetActiveSendingAddresses(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -197,7 +194,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 	if draftIDRaw != "" {
 		draftUUID, err := uuid.Parse(draftIDRaw)
 		if err == nil {
-			draft, err := s.db.GetDraftByIDForUser(r.Context(), draftUUID, user.ID)
+			draft, err := s.DB.GetDraftByIDForUser(r.Context(), draftUUID, user.ID)
 			if err == nil {
 				draftID = draft.ID.String()
 				title = "Draft"
@@ -224,7 +221,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 	if replyToIDRaw != "" {
 		replyToID, err := uuid.Parse(replyToIDRaw)
 		if err == nil {
-			orig, err := s.db.GetEmailByIDForUser(r.Context(), replyToID, user.ID)
+			orig, err := s.DB.GetEmailByIDForUser(r.Context(), replyToID, user.ID)
 			if err == nil {
 				title = "Reply"
 				to = orig.FromAddress
@@ -240,7 +237,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 				}
 				references = strings.TrimSpace(origRefs + " " + orig.MessageID)
 
-				ccList, _ := s.mail.GetCcAddresses(r.Context(), orig)
+				ccList, _ := s.Mail.GetCcAddresses(r.Context(), orig)
 				if len(ccList) > 0 {
 					cc = strings.Join(ccList, ", ")
 				}
@@ -259,7 +256,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 	if forwardOfIDRaw != "" {
 		forwardID, err := uuid.Parse(forwardOfIDRaw)
 		if err == nil {
-			orig, err := s.db.GetEmailByIDForUser(r.Context(), forwardID, user.ID)
+			orig, err := s.DB.GetEmailByIDForUser(r.Context(), forwardID, user.ID)
 			if err == nil {
 				title = "Forward"
 				subject = orig.Subject
@@ -268,7 +265,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 				}
 
 				dateStr := orig.ReceiveDatetime.Format("Jan 02, 2006, 15:04")
-				origBody, origIsHTML, _ := s.mail.FetchBody(r.Context(), orig)
+				origBody, origIsHTML, _ := s.Mail.FetchBody(r.Context(), orig)
 
 				if origIsHTML {
 					headerHTML := fmt.Sprintf(
@@ -299,7 +296,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	s.render(w, r, user, mailboxes, uuid.Nil, "all", 0, templates.Compose(addresses, fromID, to, cc, bcc, subject, inReplyTo, references, draftID, title, body, bodyHTML))
 }
 
@@ -311,7 +308,7 @@ func (s *Server) validateUserAccessToEmailID(next http.Handler) http.Handler {
 			http.Error(w, "Invalid ID", http.StatusBadRequest)
 			return
 		}
-		if _, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID); err != nil {
+		if _, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID); err != nil {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -344,7 +341,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sa, err := s.db.GetSendingAddressByID(r.Context(), fromID, user.ID)
+	sa, err := s.DB.GetSendingAddressByID(r.Context(), fromID, user.ID)
 	if err != nil {
 		slog.Warn("unauthorized sending attempt", "user_id", user.ID, "from_id", fromID, "error", err)
 		http.Error(w, "Unauthorized from address", http.StatusForbidden)
@@ -387,14 +384,14 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rawBytes, from, recipients, err := s.sender.BuildMessage(outMsg)
+	rawBytes, from, recipients, err := s.Sender.BuildMessage(outMsg)
 	if err != nil {
 		slog.Error("failed to build outbound message", "user_id", user.ID, "error", err)
 		http.Error(w, "Failed to build email", http.StatusInternalServerError)
 		return
 	}
 
-	email, err := s.mail.Persist(r.Context(), mail.PersistOptions{
+	email, err := s.Mail.Persist(r.Context(), mail.PersistOptions{
 		MailboxID:        sa.MailboxID,
 		RawMessage:       rawBytes,
 		IsOutbound:       true,
@@ -409,23 +406,23 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.cfg.RateLimit.OutboundPerUserHour > 0 {
-		count, err := s.rateLimitDB.CountOutboundByUserHour(r.Context(), user.ID)
+	if s.Config.RateLimit.OutboundPerUserHour > 0 {
+		count, err := s.RateLimitDB.CountOutboundByUserHour(r.Context(), user.ID)
 		if err != nil {
 			slog.Error("failed to check outbound rate limit", "user_id", user.ID, "error", err)
-		} else if count >= s.cfg.RateLimit.OutboundPerUserHour {
+		} else if count >= s.Config.RateLimit.OutboundPerUserHour {
 			http.Error(w, "Hourly sending limit reached, please try again later", http.StatusTooManyRequests)
 			return
 		}
 	}
 
-	if _, err := s.db.InsertOutboundJob(r.Context(), &email.ID, from, recipients, rawBytes); err != nil {
+	if _, err := s.DB.InsertOutboundJob(r.Context(), &email.ID, from, recipients, rawBytes); err != nil {
 		slog.Error("failed to enqueue outbound job", "user_id", user.ID, "email_id", email.ID, "error", err)
 	}
 
 	if draftIDRaw := r.FormValue("draft_id"); draftIDRaw != "" {
 		if draftID, err := uuid.Parse(draftIDRaw); err == nil {
-			if err := s.db.DeleteDraft(r.Context(), draftID, user.ID); err != nil {
+			if err := s.DB.DeleteDraft(r.Context(), draftID, user.ID); err != nil {
 				slog.Error("failed to delete draft after send", "draft_id", draftID, "error", err)
 			}
 		}
@@ -453,7 +450,7 @@ func (s *Server) handleDraftSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sa, err := s.db.GetSendingAddressByID(r.Context(), fromID, user.ID)
+	sa, err := s.DB.GetSendingAddressByID(r.Context(), fromID, user.ID)
 	if err != nil {
 		http.Error(w, "Unauthorized from address", http.StatusForbidden)
 		return
@@ -485,7 +482,7 @@ func (s *Server) handleDraftSave(w http.ResponseWriter, r *http.Request) {
 				InReplyTo:        inReplyTo,
 				References:       references,
 			}
-			if err := s.db.UpdateDraft(r.Context(), draft); err != nil {
+			if err := s.DB.UpdateDraft(r.Context(), draft); err != nil {
 				slog.Error("failed to update draft", "draft_id", draftID, "error", err)
 				http.Error(w, "Internal error", http.StatusInternalServerError)
 				return
@@ -508,7 +505,7 @@ func (s *Server) handleDraftSave(w http.ResponseWriter, r *http.Request) {
 		InReplyTo:        inReplyTo,
 		References:       references,
 	}
-	created, err := s.db.CreateDraft(r.Context(), draft)
+	created, err := s.DB.CreateDraft(r.Context(), draft)
 	if err != nil {
 		slog.Error("failed to create draft", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -525,13 +522,13 @@ func (s *Server) handleDraftDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	draft, err := s.db.GetDraftByIDForUser(r.Context(), draftID, user.ID)
+	draft, err := s.DB.GetDraftByIDForUser(r.Context(), draftID, user.ID)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	if err := s.db.DeleteDraft(r.Context(), draftID, user.ID); err != nil {
+	if err := s.DB.DeleteDraft(r.Context(), draftID, user.ID); err != nil {
 		slog.Error("failed to delete draft", "draft_id", draftID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -558,8 +555,8 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events := s.hub.Subscribe(user.ID)
-	defer s.hub.Unsubscribe(user.ID, events)
+	events := s.Hub.Subscribe(user.ID)
+	defer s.Hub.Unsubscribe(user.ID, events)
 
 	fmt.Fprintf(w, ": connected\n\n")
 	flusher.Flush()
@@ -598,13 +595,13 @@ func (s *Server) draftCount(ctx context.Context, mailboxID uuid.UUID, userID uui
 	if mailboxID == uuid.Nil {
 		return 0
 	}
-	count, _ := s.db.CountDraftsByMailboxID(ctx, mailboxID, userID)
+	count, _ := s.DB.CountDraftsByMailboxID(ctx, mailboxID, userID)
 	return count
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -639,7 +636,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 		filter = "all"
 	}
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -661,7 +658,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	dc := s.draftCount(r.Context(), mailboxID, user.ID)
 
 	if filter == "drafts" {
-		drafts, err := s.db.GetDraftsByMailboxID(r.Context(), mailboxID, user.ID)
+		drafts, err := s.DB.GetDraftsByMailboxID(r.Context(), mailboxID, user.ID)
 		if err != nil {
 			slog.Error("failed to fetch drafts", "mailbox_id", mailboxID, "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -671,7 +668,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	emails, err := s.db.GetEmailsByMailboxID(r.Context(), mailboxID, filter, 50, 0)
+	emails, err := s.DB.GetEmailsByMailboxID(r.Context(), mailboxID, filter, 50, 0)
 	if err != nil {
 		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -689,7 +686,7 @@ func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -714,7 +711,7 @@ func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	emails, err := s.db.SearchEmailsByMailboxID(r.Context(), mailboxID, user.ID, query, 50, 0)
+	emails, err := s.DB.SearchEmailsByMailboxID(r.Context(), mailboxID, user.ID, query, 50, 0)
 	if err != nil {
 		slog.Error("search failed", "mailbox_id", mailboxID, "query", query, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -733,7 +730,7 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -741,24 +738,24 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !email.IsRead {
-		if err := s.db.MarkEmailRead(r.Context(), emailID, user.ID, true); err != nil {
+		if err := s.DB.MarkEmailRead(r.Context(), emailID, user.ID, true); err != nil {
 			slog.Error("failed to mark email read", "email_id", emailID, "error", err)
 		}
 		email.IsRead = true
 	}
 
-	attachments, err := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	attachments, err := s.DB.GetAttachmentsByEmailID(r.Context(), emailID)
 	if err != nil {
 		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
-	content, isHTML, err := s.mail.FetchBody(r.Context(), email)
+	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
 		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
 		content = "Failed to load content"
 	}
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -776,7 +773,7 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email for star", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -784,18 +781,18 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	starred := !email.IsStar
-	if err := s.db.MarkEmailStarred(r.Context(), emailID, user.ID, starred); err != nil {
+	if err := s.DB.MarkEmailStarred(r.Context(), emailID, user.ID, starred); err != nil {
 		slog.Error("failed to toggle star", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
 
-	attachments, err := s.db.GetAttachmentsByEmailID(r.Context(), emailID)
+	attachments, err := s.DB.GetAttachmentsByEmailID(r.Context(), emailID)
 	if err != nil {
 		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
-	content, isHTML, err := s.mail.FetchBody(r.Context(), email)
+	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
 		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
 	}
@@ -812,7 +809,7 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email for delete", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -824,7 +821,7 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 		targetStatus = models.StatusInbox
 	}
 
-	if err := s.db.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
+	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
 		slog.Error("failed to toggle delete", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
@@ -845,14 +842,14 @@ func (s *Server) handleEmailRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email for release", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	if err := s.db.UpdateEmailStatus(r.Context(), emailID, user.ID, models.StatusInbox); err != nil {
+	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, models.StatusInbox); err != nil {
 		slog.Error("failed to release email", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
@@ -881,29 +878,29 @@ func (s *Server) handleEmailLearn(w http.ResponseWriter, r *http.Request, spam b
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email for spam learning", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	if err := s.db.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
+	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
 		slog.Error("failed to update email status for spam learning", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
 
-	if s.rspamd != nil {
-		raw, err := s.mail.FetchRaw(r.Context(), email)
+	if s.Rspamd != nil {
+		raw, err := s.Mail.FetchRaw(r.Context(), email)
 		if err != nil {
 			slog.Error("failed to fetch raw email for rspamd learning", "email_id", emailID, "error", err)
 		} else {
 			var learnErr error
 			if spam {
-				learnErr = s.rspamd.LearnSpam(r.Context(), raw)
+				learnErr = s.Rspamd.LearnSpam(r.Context(), raw)
 			} else {
-				learnErr = s.rspamd.LearnHam(r.Context(), raw)
+				learnErr = s.Rspamd.LearnHam(r.Context(), raw)
 			}
 			if learnErr != nil {
 				slog.Error("rspamd learn failed", "email_id", emailID, "spam", spam, "error", learnErr)
@@ -927,19 +924,19 @@ func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email for headers", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	headers, err := s.mail.FetchHeaders(r.Context(), email)
+	headers, err := s.Mail.FetchHeaders(r.Context(), email)
 	if err != nil {
 		slog.Error("failed to fetch headers", "key", email.StorageKey, "error", err)
 	}
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 	}
@@ -955,14 +952,14 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch email for pipeline", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	steps, err := s.db.GetIngestionStepsByEmailID(r.Context(), emailID, user.ID)
+	steps, err := s.DB.GetIngestionStepsByEmailID(r.Context(), emailID, user.ID)
 	if err != nil {
 		slog.Error("failed to fetch ingestion steps", "email_id", emailID, "error", err)
 	}
@@ -976,7 +973,7 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 	}
@@ -1008,7 +1005,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		session, err := s.db.GetWebmailSession(r.Context(), cookie.Value)
+		session, err := s.DB.GetWebmailSession(r.Context(), cookie.Value)
 		if err != nil || session.ExpiresDatetime.Before(time.Now()) {
 			slog.Warn("invalid or expired session", "error", err)
 			if r.Header.Get("HX-Request") == "true" {
@@ -1019,7 +1016,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := s.db.GetUserByID(r.Context(), session.UserID)
+		user, err := s.DB.GetUserByID(r.Context(), session.UserID)
 		if err != nil || !user.IsActive {
 			slog.Warn("user not found or inactive", "user_id", session.UserID, "error", err)
 			if r.Header.Get("HX-Request") == "true" {
@@ -1056,7 +1053,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		return false
 	}
 
-	user, err := s.db.GetUserByUsername(r.Context(), username)
+	user, err := s.DB.GetUserByUsername(r.Context(), username)
 	if err != nil || !user.IsActive {
 		slog.Warn("login failed: user not found or inactive", "username", username)
 		if recordFailure() {
@@ -1078,7 +1075,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	token := generateToken()
 	expires := time.Now().Add(24 * time.Hour)
-	if err := s.db.CreateWebmailSession(r.Context(), user.ID, token, r.RemoteAddr, r.UserAgent(), expires); err != nil {
+	if err := s.DB.CreateWebmailSession(r.Context(), user.ID, token, r.RemoteAddr, r.UserAgent(), expires); err != nil {
 		slog.Error("failed to create session", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -1100,7 +1097,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("maileroo_session")
 	if err == nil {
-		if err := s.db.ExpireWebmailSession(r.Context(), cookie.Value); err != nil {
+		if err := s.DB.ExpireWebmailSession(r.Context(), cookie.Value); err != nil {
 			slog.Error("failed to expire session on logout", "error", err)
 		}
 	}
@@ -1126,14 +1123,14 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	att, err := s.db.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
+	att, err := s.DB.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
 	if err != nil {
 		slog.Error("attachment not found or forbidden", "att_id", attID, "user_id", user.ID, "error", err)
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	rc, err := s.storage.Get(r.Context(), att.StorageKey)
+	rc, err := s.Storage.Get(r.Context(), att.StorageKey)
 	if err != nil {
 		slog.Error("failed to fetch attachment", "key", att.StorageKey, "error", err)
 		http.Error(w, "Failed to load", http.StatusInternalServerError)
@@ -1141,7 +1138,7 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 	}
 	defer rc.Close()
 
-	bodyReader, err := s.mail.DecompressReader(rc, att.StorageKey)
+	bodyReader, err := s.Mail.DecompressReader(rc, att.StorageKey)
 	if err != nil {
 		slog.Error("failed to decompress attachment", "key", att.StorageKey, "error", err)
 		http.Error(w, "Failed to load", http.StatusInternalServerError)
@@ -1159,14 +1156,14 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 func (s *Server) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 
-	mailboxes, err := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	sendingAddresses, err := s.db.GetActiveSendingAddresses(r.Context(), user.ID)
+	sendingAddresses, err := s.DB.GetActiveSendingAddresses(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -1188,7 +1185,7 @@ func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request)
 
 	displayName := r.FormValue("display_name")
 
-	err = s.db.UpdateSendingAddressDisplayName(r.Context(), saID, user.ID, displayName)
+	err = s.DB.UpdateSendingAddressDisplayName(r.Context(), saID, user.ID, displayName)
 	if err != nil {
 		slog.Error("failed to update display name", "user_id", user.ID, "sa_id", saID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)

@@ -15,7 +15,7 @@ import (
 
 func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
-	contacts, err := s.db.ListContacts(r.Context(), user.ID)
+	contacts, err := s.DB.ListContacts(r.Context(), user.ID)
 	if err != nil {
 		slog.Error("failed to list contacts", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -35,7 +35,7 @@ func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	s.render(w, r, user, mailboxes, uuid.Nil, "contacts", 0, templates.ContactsPage(contacts, selected))
 }
 
@@ -48,7 +48,7 @@ func (s *Server) handleContactSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contacts, err := s.db.SearchContacts(r.Context(), user.ID, q)
+	contacts, err := s.DB.SearchContacts(r.Context(), user.ID, q)
 	if err != nil {
 		slog.Error("failed to search contacts", "user_id", user.ID, "error", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -110,14 +110,14 @@ func (s *Server) handleContactCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := s.db.CreateContact(r.Context(), c)
+	created, err := s.DB.CreateContact(r.Context(), c)
 	if err != nil {
 		slog.Error("failed to create contact", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	contacts, _ := s.db.ListContacts(r.Context(), user.ID)
+	contacts, _ := s.DB.ListContacts(r.Context(), user.ID)
 	templates.ContactsPage(contacts, created).Render(r.Context(), w)
 }
 
@@ -155,14 +155,14 @@ func (s *Server) handleContactUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.UpdateContact(r.Context(), c); err != nil {
+	if err := s.DB.UpdateContact(r.Context(), c); err != nil {
 		slog.Error("failed to update contact", "contact_id", contactID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	updated, _ := s.db.GetContactByID(r.Context(), contactID, user.ID)
-	contacts, _ := s.db.ListContacts(r.Context(), user.ID)
+	updated, _ := s.DB.GetContactByID(r.Context(), contactID, user.ID)
+	contacts, _ := s.DB.ListContacts(r.Context(), user.ID)
 	templates.ContactsPage(contacts, updated).Render(r.Context(), w)
 }
 
@@ -174,13 +174,13 @@ func (s *Server) handleContactDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.DeleteContact(r.Context(), contactID, user.ID); err != nil {
+	if err := s.DB.DeleteContact(r.Context(), contactID, user.ID); err != nil {
 		slog.Error("failed to delete contact", "contact_id", contactID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	contacts, _ := s.db.ListContacts(r.Context(), user.ID)
+	contacts, _ := s.DB.ListContacts(r.Context(), user.ID)
 	templates.ContactsPage(contacts, nil).Render(r.Context(), w)
 }
 
@@ -192,14 +192,14 @@ func (s *Server) handleContactToggleFavorite(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := s.db.ToggleContactFavorite(r.Context(), contactID, user.ID); err != nil {
+	if err := s.DB.ToggleContactFavorite(r.Context(), contactID, user.ID); err != nil {
 		slog.Error("failed to toggle favorite", "contact_id", contactID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	updated, _ := s.db.GetContactByID(r.Context(), contactID, user.ID)
-	contacts, _ := s.db.ListContacts(r.Context(), user.ID)
+	updated, _ := s.DB.GetContactByID(r.Context(), contactID, user.ID)
+	contacts, _ := s.DB.ListContacts(r.Context(), user.ID)
 	templates.ContactsPage(contacts, updated).Render(r.Context(), w)
 }
 
@@ -211,7 +211,7 @@ func (s *Server) handleAddContactFromEmail(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	email, err := s.db.GetEmailByIDForUser(r.Context(), emailID, user.ID)
+	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
@@ -232,13 +232,13 @@ func (s *Server) handleAddContactFromEmail(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	if err := s.db.UpsertContactFromEmail(r.Context(), user.ID, emailAddr, firstName, lastName); err != nil {
+	if err := s.DB.UpsertContactFromEmail(r.Context(), user.ID, emailAddr, firstName, lastName); err != nil {
 		slog.Error("failed to upsert contact from email", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	contacts, _ := s.db.ListContacts(r.Context(), user.ID)
+	contacts, _ := s.DB.ListContacts(r.Context(), user.ID)
 	var selected *models.Contact
 	for i := range contacts {
 		if contacts[i].Email == emailAddr {
@@ -247,6 +247,6 @@ func (s *Server) handleAddContactFromEmail(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	mailboxes, _ := s.db.GetMailboxesByUserID(r.Context(), user.ID)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	s.render(w, r, user, mailboxes, uuid.Nil, "contacts", 0, templates.ContactsPage(contacts, selected))
 }

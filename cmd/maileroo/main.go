@@ -165,7 +165,16 @@ func runServe() {
 	}()
 
 	// Initialize Web Server
-	webServer := web.NewServer(*cfg, database, database, store, hub, mta, mailSvc, rspamdClient)
+	webServer := web.NewServer(web.ServerConfig{
+		Config:      *cfg,
+		DB:          database,
+		RateLimitDB: database,
+		Storage:     store,
+		Hub:         hub,
+		Sender:      mta,
+		Mail:        mailSvc,
+		Rspamd:      rspamdClient,
+	})
 
 	// Start Web server (Chi)
 	go func() {
