@@ -302,7 +302,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" hx-target=\"#main-content\" class=\"hidden\"></div><!-- Sidebar --><aside class=\"w-64 flex-shrink-0 bg-white border-r border-purple-100 flex flex-col\"><div class=\"p-6\"><div class=\"flex items-center gap-3 mb-8\"><div class=\"h-10 w-10 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200\"><img class=\"h-6 w-6 brightness-0 invert\" src=\"/static/img/maileroo.png\" alt=\"Maileroo Logo\"></div><span class=\"text-xl font-extrabold text-gray-900 tracking-tight\">Maileroo</span></div><button hx-get=\"/compose\" hx-target=\"#main-content\" hx-push-url=\"true\" class=\"w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-lg shadow-purple-200 transition-all cursor-pointer group\"><svg class=\"w-5 h-5 group-hover:rotate-90 transition-transform duration-300\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.5\" d=\"M12 4v16m8-8H4\"></path></svg> Compose</button></div><div class=\"relative flex-1 overflow-hidden\" x-data=\"{ showTop: false, showBottom: false }\" x-init=\"\n\t\t\t\t\t\tconst el = $el.querySelector('nav');\n\t\t\t\t\t\tconst update = () => {\n\t\t\t\t\t\t\tshowTop = el.scrollTop > 8;\n\t\t\t\t\t\t\tshowBottom = el.scrollTop + el.clientHeight < el.scrollHeight - 8;\n\t\t\t\t\t\t};\n\t\t\t\t\t\tel.addEventListener('scroll', update);\n\t\t\t\t\t\tnew ResizeObserver(update).observe(el);\n\t\t\t\t\t\tupdate();\n\t\t\t\t\t\"><div class=\"pointer-events-none absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-white via-white/80 to-transparent z-10 transition-opacity duration-200\" :class=\"showTop ? 'opacity-100' : 'opacity-0'\"></div><div class=\"pointer-events-none absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-white via-white/80 to-transparent z-10 transition-opacity duration-200\" :class=\"showBottom ? 'opacity-100' : 'opacity-0'\"></div><nav class=\"h-full px-4 space-y-4 overflow-y-auto scrollbar-hide pb-4\"><!-- Mailboxes Section -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" hx-target=\"#main-content\" class=\"hidden\"></div><!-- Sidebar --><aside class=\"w-64 flex-shrink-0 bg-white border-r border-purple-100 flex flex-col\"><div class=\"p-6\"><div class=\"flex items-center gap-3 mb-8\"><img class=\"h-10 w-auto\" src=\"/static/img/maileroo.png\" alt=\"Maileroo Logo\"> <span class=\"text-xl font-extrabold text-gray-900 tracking-tight\">Maileroo</span></div><button hx-get=\"/compose\" hx-target=\"#main-content\" hx-push-url=\"true\" class=\"w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-sm transition-all cursor-pointer group\"><svg class=\"w-5 h-5 group-hover:rotate-90 transition-transform duration-300\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.5\" d=\"M12 4v16m8-8H4\"></path></svg> Compose</button></div><div class=\"relative flex-1 overflow-hidden\" x-data=\"{ showTop: false, showBottom: false }\" x-init=\"\n\t\t\t\t\t\tconst el = $el.querySelector('nav');\n\t\t\t\t\t\tconst update = () => {\n\t\t\t\t\t\t\tshowTop = el.scrollTop > 8;\n\t\t\t\t\t\t\tshowBottom = el.scrollTop + el.clientHeight < el.scrollHeight - 8;\n\t\t\t\t\t\t};\n\t\t\t\t\t\tel.addEventListener('scroll', update);\n\t\t\t\t\t\tnew ResizeObserver(update).observe(el);\n\t\t\t\t\t\tupdate();\n\t\t\t\t\t\"><div class=\"pointer-events-none absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-white via-white/80 to-transparent z-10 transition-opacity duration-200\" :class=\"showTop ? 'opacity-100' : 'opacity-0'\"></div><div class=\"pointer-events-none absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-white via-white/80 to-transparent z-10 transition-opacity duration-200\" :class=\"showBottom ? 'opacity-100' : 'opacity-0'\"></div><nav class=\"h-full px-4 space-y-4 overflow-y-auto scrollbar-hide pb-4\"><!-- Mailboxes Section -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -314,7 +314,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs("/mailbox/" + mb.ID.String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 160, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 158, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -327,7 +327,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs("currentMailboxID = '" + mb.ID.String() + "'; filter = 'all'")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 163, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 161, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -340,7 +340,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("currentMailboxID === '%s' ? 'text-purple-700' : 'text-gray-400 hover:text-gray-600'", mb.ID.String()))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 165, Col: 131}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 163, Col: 131}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -353,7 +353,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(mb.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 170, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 168, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -366,7 +366,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("currentMailboxID === '" + mb.ID.String() + "'")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 173, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 171, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -481,7 +481,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(strings.ToUpper(user.Username[:2]))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 218, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 216, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -494,7 +494,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(user.Username)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 223, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 221, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -507,7 +507,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 227, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 225, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -535,7 +535,7 @@ func Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID u
 	})
 }
 
-func MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email) templ.Component {
+func MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, searchQuery string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -569,7 +569,7 @@ func MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email) t
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(filter)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 254, Col: 13}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 252, Col: 13}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -583,349 +583,362 @@ func MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email) t
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs("/mailbox/" + mailboxID.String() + "/search")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 261, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 259, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" hx-target=\"#main-content\" hx-push-url=\"true\" class=\"relative group\"><span class=\"absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-purple-500 transition-colors\"><svg class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z\"></path></svg></span> <input type=\"search\" name=\"q\" placeholder=\"Search your inbox...\" class=\"w-full bg-gray-100 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-purple-200 focus:bg-white transition-all outline-none\"></form></div></header><!-- Sub-header + Email List + Bulk Bar --><div class=\"flex-1 flex flex-col overflow-hidden relative\" x-data=\"{\n\t\t\tselected: new Set(),\n\t\t\tget allIDs() { return Array.from(document.querySelectorAll('[data-email-id]')).map(el => el.dataset.emailId); },\n\t\t\tget allSelected() { return this.allIDs.length > 0 && this.allIDs.every(id => this.selected.has(id)); },\n\t\t\ttoggleAll(checked) { if (checked) { this.allIDs.forEach(id => this.selected.add(id)); } else { this.selected.clear(); } this.selected = new Set(this.selected); },\n\t\t\ttoggle(id, checked) { if (checked) { this.selected.add(id); } else { this.selected.delete(id); } this.selected = new Set(this.selected); },\n\t\t\tisSelected(id) { return this.selected.has(id); }\n\t\t}\"><div class=\"h-12 border-b border-gray-50 flex items-center justify-between px-6 bg-white flex-shrink-0\"><div class=\"flex items-center gap-4\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer\" :checked=\"allSelected\" @change=\"toggleAll($event.target.checked)\"> <span class=\"text-sm font-medium text-gray-500\">Select All</span></div><div class=\"flex items-center gap-4\"><span class=\"text-xs font-medium text-gray-400\">1-")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" hx-target=\"#main-content\" hx-push-url=\"true\" class=\"relative group\"><span class=\"absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-purple-500 transition-colors\"><svg class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z\"></path></svg></span> <input type=\"search\" name=\"q\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var30 string
-		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(emails)))
+		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(searchQuery)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 304, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 272, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, " of ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" placeholder=\"Search your inbox...\" class=\"w-full bg-gray-100 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-purple-200 focus:bg-white transition-all outline-none\"></form></div></header><!-- Sub-header + Email List + Bulk Bar --><div class=\"flex-1 flex flex-col overflow-hidden relative\" x-data=\"{\n\t\t\tselected: new Set(),\n\t\t\tget allIDs() { return Array.from(document.querySelectorAll('[data-email-id]')).map(el => el.dataset.emailId); },\n\t\t\tget allSelected() { return this.allIDs.length > 0 && this.allIDs.every(id => this.selected.has(id)); },\n\t\t\ttoggleAll(checked) { if (checked) { this.allIDs.forEach(id => this.selected.add(id)); } else { this.selected.clear(); } this.selected = new Set(this.selected); },\n\t\t\ttoggle(id, checked) { if (checked) { this.selected.add(id); } else { this.selected.delete(id); } this.selected = new Set(this.selected); },\n\t\t\tisSelected(id) { return this.selected.has(id); }\n\t\t}\"><div class=\"h-12 border-b border-gray-50 flex items-center justify-between px-6 bg-white flex-shrink-0\"><div class=\"flex items-center gap-4\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer\" :checked=\"allSelected\" @change=\"toggleAll($event.target.checked)\"> <span class=\"text-sm font-medium text-gray-500\">Select All</span></div><div class=\"flex items-center gap-4\"><span class=\"text-xs font-medium text-gray-400\">1-")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(emails)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 304, Col: 123}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 303, Col: 85}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</span></div></div><!-- Email List --><div class=\"flex-1 overflow-y-auto\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, " of ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(emails)))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 303, Col: 123}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</span></div></div><!-- Email List --><div class=\"flex-1 overflow-y-auto\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(emails) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<ul class=\"divide-y divide-gray-50\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<ul class=\"divide-y divide-gray-50\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, email := range emails {
-				var templ_7745c5c3_Var32 = []any{"hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-6 py-3 gap-4", templ.KV("bg-purple-50/30", !email.IsRead)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var32...)
+				var templ_7745c5c3_Var33 = []any{"hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-6 py-3 gap-4", templ.KV("bg-purple-50/30", !email.IsRead)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var33...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<li class=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var33 string
-				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var32).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\" data-email-id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<li class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var34 string
-				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(email.ID.String())
+				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var33).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 315, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\" hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\" data-email-id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var35 string
-				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs("/email/" + email.ID.String())
+				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(email.ID.String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 316, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 314, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\" hx-target=\"#main-content\" hx-push-url=\"true\" hx-swap=\"innerHTML\"><div class=\"flex items-center gap-4 flex-shrink-0\" onclick=\"event.stopPropagation()\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer\" :checked=\"isSelected($el.closest('[data-email-id]').dataset.emailId)\" @change=\"toggle($el.closest('[data-email-id]').dataset.emailId, $event.target.checked)\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\" hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var36 = []any{"transition-colors", templ.KV("text-yellow-400", email.IsStar), templ.KV("text-gray-300 hover:text-gray-400", !email.IsStar)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var36...)
+				var templ_7745c5c3_Var36 string
+				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs("/email/" + email.ID.String())
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 315, Col: 44}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<button class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\" hx-target=\"#main-content\" hx-push-url=\"true\" hx-swap=\"innerHTML\"><div class=\"flex items-center gap-4 flex-shrink-0\" onclick=\"event.stopPropagation()\"><input type=\"checkbox\" class=\"h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer\" :checked=\"isSelected($el.closest('[data-email-id]').dataset.emailId)\" @change=\"toggle($el.closest('[data-email-id]').dataset.emailId, $event.target.checked)\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var37 string
-				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var36).String())
+				var templ_7745c5c3_Var37 = []any{"transition-colors", templ.KV("text-yellow-400", email.IsStar), templ.KV("text-gray-300 hover:text-gray-400", !email.IsStar)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var37...)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<button class=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var38 string
+				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var37).String())
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var38 = []any{"h-5 w-5", templ.KV("fill-current", email.IsStar)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var38...)
+				var templ_7745c5c3_Var39 = []any{"h-5 w-5", templ.KV("fill-current", email.IsStar)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var39...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<svg class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<svg class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var39 string
-				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var38).String())
+				var templ_7745c5c3_Var40 string
+				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var39).String())
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z\"></path></svg></button></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z\"></path></svg></button></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var40 = []any{"h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0", getAvatarColor(email.FromAddress)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var40...)
+				var templ_7745c5c3_Var41 = []any{"h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0", getAvatarColor(email.FromAddress)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var41...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var41 string
-				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var40).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<div class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var42 string
-				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(getInitials(email.FromAddress))
+				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var41).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 335, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</div><div class=\"flex-1 min-w-0\"><div class=\"flex items-center justify-between mb-0.5\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var43 = []any{"text-sm truncate", templ.KV("font-bold text-gray-900", !email.IsRead), templ.KV("text-gray-600", email.IsRead)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var43...)
+				var templ_7745c5c3_Var43 string
+				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(getInitials(email.FromAddress))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 334, Col: 39}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<p class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</div><div class=\"flex-1 min-w-0\"><div class=\"flex items-center justify-between mb-0.5\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var44 string
-				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var43).String())
+				var templ_7745c5c3_Var44 = []any{"text-sm truncate", templ.KV("font-bold text-gray-900", !email.IsRead), templ.KV("text-gray-600", email.IsRead)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var44...)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<p class=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var45 string
+				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var44).String())
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if filter == "sent" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "To: ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "To: ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var45 string
-					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(email.ToAddress)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 342, Col: 31}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
 					var templ_7745c5c3_Var46 string
-					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(email.FromAddress)
+					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(email.ToAddress)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 344, Col: 29}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 341, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
+				} else {
+					var templ_7745c5c3_Var47 string
+					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(email.FromAddress)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 343, Col: 29}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var47 = []any{"text-xs font-bold whitespace-nowrap ml-4", templ.KV("text-purple-600", !email.IsRead), templ.KV("text-gray-400", email.IsRead)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var47...)
+				var templ_7745c5c3_Var48 = []any{"text-xs font-bold whitespace-nowrap ml-4", templ.KV("text-purple-600", !email.IsRead), templ.KV("text-gray-400", email.IsRead)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var48...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<p class=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var48 string
-				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var47).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\" data-local-time=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<p class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var49 string
-				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(email.ReceiveDatetime.Format("2006-01-02T15:04:05Z07:00"))
+				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var48).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 347, Col: 224}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" data-format=\"list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" data-local-time=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var50 string
-				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(email.ReceiveDatetime.Format("Jan 02, 15:04"))
+				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(email.ReceiveDatetime.Format("2006-01-02T15:04:05Z07:00"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 348, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 346, Col: 224}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</p></div><div class=\"flex items-center gap-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" data-format=\"list\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var51 = []any{"text-sm truncate", templ.KV("font-bold text-gray-800", !email.IsRead), templ.KV("text-gray-500", email.IsRead)}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var51...)
+				var templ_7745c5c3_Var51 string
+				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(email.ReceiveDatetime.Format("Jan 02, 15:04"))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 347, Col: 56}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<p class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</p></div><div class=\"flex items-center gap-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var52 string
-				templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var51).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+				var templ_7745c5c3_Var52 = []any{"text-sm truncate", templ.KV("font-bold text-gray-800", !email.IsRead), templ.KV("text-gray-500", email.IsRead)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var52...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<p class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var53 string
-				templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(email.Subject)
+				templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var52).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 353, Col: 24}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var54 string
+				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(email.Subject)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 352, Col: 24}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if email.BodyPlain != nil && *email.BodyPlain != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<span class=\"text-sm text-gray-400 truncate font-normal\">- ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<span class=\"text-sm text-gray-400 truncate font-normal\">- ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var54 string
-					templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(*email.BodyPlain)
+					var templ_7745c5c3_Var55 string
+					templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(*email.BodyPlain)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 357, Col: 30}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 356, Col: 30}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</div></div></li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</div></div></li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if mailboxID != uuid.Nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<div class=\"flex flex-col items-center justify-center h-full text-gray-300 space-y-4\"><div class=\"h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center\"><svg class=\"h-10 w-10 opacity-20\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1\" d=\"M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4\"></path></svg></div><p class=\"font-bold text-sm tracking-wide uppercase\">Your inbox is empty</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"flex flex-col items-center justify-center h-full text-gray-300 space-y-4\"><div class=\"h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center\"><svg class=\"h-10 w-10 opacity-20\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1\" d=\"M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4\"></path></svg></div><p class=\"font-bold text-sm tracking-wide uppercase\">Your inbox is empty</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"flex flex-col items-center justify-center h-full text-gray-400 space-y-4\"><p class=\"font-medium underline decoration-purple-200 underline-offset-8\">Select a mailbox from the left to view emails</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "<div class=\"flex flex-col items-center justify-center h-full text-gray-400 space-y-4\"><p class=\"font-medium underline decoration-purple-200 underline-offset-8\">Select a mailbox from the left to view emails</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</div><!-- Floating Bulk Actions Bar --><div x-show=\"selected.size > 0\" x-cloak x-transition:enter=\"transition ease-out duration-200\" x-transition:enter-start=\"opacity-0 translate-y-4\" x-transition:enter-end=\"opacity-100 translate-y-0\" x-transition:leave=\"transition ease-in duration-150\" x-transition:leave-start=\"opacity-100 translate-y-0\" x-transition:leave-end=\"opacity-0 translate-y-4\" class=\"absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-gray-900 text-white rounded-2xl shadow-2xl px-4 py-3\"><span class=\"text-sm font-semibold text-gray-300 pr-2 border-r border-gray-700\" x-text=\"selected.size + ' selected'\"></span> <button class=\"flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors cursor-pointer\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76\"></path></svg> Mark Read</button> <button class=\"flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors cursor-pointer\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\"></path></svg> Mark Unread</button> <button class=\"flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-red-600 transition-colors cursor-pointer text-red-400 hover:text-white\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16\"></path></svg> Delete</button> <button @click=\"selected.clear(); selected = new Set()\" class=\"ml-1 p-1.5 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer text-gray-400 hover:text-white\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</div><!-- Floating Bulk Actions Bar --><div x-show=\"selected.size > 0\" x-cloak x-transition:enter=\"transition ease-out duration-200\" x-transition:enter-start=\"opacity-0 translate-y-4\" x-transition:enter-end=\"opacity-100 translate-y-0\" x-transition:leave=\"transition ease-in duration-150\" x-transition:leave-start=\"opacity-100 translate-y-0\" x-transition:leave-end=\"opacity-0 translate-y-4\" class=\"absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-gray-900 text-white rounded-2xl shadow-2xl px-4 py-3\"><span class=\"text-sm font-semibold text-gray-300 pr-2 border-r border-gray-700\" x-text=\"selected.size + ' selected'\"></span> <button class=\"flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors cursor-pointer\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76\"></path></svg> Mark Read</button> <button class=\"flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors cursor-pointer\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\"></path></svg> Mark Unread</button> <button class=\"flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-red-600 transition-colors cursor-pointer text-red-400 hover:text-white\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16\"></path></svg> Delete</button> <button @click=\"selected.clear(); selected = new Set()\" class=\"ml-1 p-1.5 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer text-gray-400 hover:text-white\"><svg class=\"h-4 w-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -949,16 +962,16 @@ func SearchContent(mailboxID uuid.UUID, query string, emails []models.Email) tem
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var55 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var55 == nil {
-			templ_7745c5c3_Var55 = templ.NopComponent
+		templ_7745c5c3_Var56 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var56 == nil {
+			templ_7745c5c3_Var56 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<!-- Search content uses the same structure as MailboxContent -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<!-- Search content uses the same structure as MailboxContent -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = MailboxContent(mailboxID, "search", emails).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = MailboxContent(mailboxID, "search", emails, query).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -982,103 +995,103 @@ func DraftsContent(mailboxID uuid.UUID, drafts []models.Draft) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var56 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var56 == nil {
-			templ_7745c5c3_Var56 = templ.NopComponent
+		templ_7745c5c3_Var57 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var57 == nil {
+			templ_7745c5c3_Var57 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<header class=\"h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white sticky top-0 z-10\"><h2 class=\"text-xl font-bold text-gray-900 uppercase tracking-tight\">Drafts</h2></header><div class=\"flex-1 overflow-y-auto\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<header class=\"h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white sticky top-0 z-10\"><h2 class=\"text-xl font-bold text-gray-900 uppercase tracking-tight\">Drafts</h2></header><div class=\"flex-1 overflow-y-auto\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(drafts) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<ul class=\"divide-y divide-gray-50\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<ul class=\"divide-y divide-gray-50\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, draft := range drafts {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<li class=\"hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-6 py-4 gap-4\" hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<li class=\"hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-6 py-4 gap-4\" hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var57 string
-				templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs("/compose?draft=" + draft.ID.String())
+				var templ_7745c5c3_Var58 string
+				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs("/compose?draft=" + draft.ID.String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 436, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 435, Col: 52}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\" hx-target=\"#main-content\" hx-push-url=\"true\" hx-swap=\"innerHTML\"><div class=\"h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400\"><svg class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z\"></path></svg></div><div class=\"flex-1 min-w-0\"><div class=\"flex items-center justify-between mb-0.5\"><p class=\"text-sm font-bold text-gray-500 italic\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\" hx-target=\"#main-content\" hx-push-url=\"true\" hx-swap=\"innerHTML\"><div class=\"h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400\"><svg class=\"h-6 w-6\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z\"></path></svg></div><div class=\"flex-1 min-w-0\"><div class=\"flex items-center justify-between mb-0.5\"><p class=\"text-sm font-bold text-gray-500 italic\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if draft.ToAddress != "" {
-					var templ_7745c5c3_Var58 string
-					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs("To: " + draft.ToAddress)
+					var templ_7745c5c3_Var59 string
+					templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs("To: " + draft.ToAddress)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 450, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 449, Col: 36}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "No recipient")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "No recipient")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</p><p class=\"text-xs text-gray-400 group-hover:text-gray-500\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</p><p class=\"text-xs text-gray-400 group-hover:text-gray-500\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var59 string
-				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(draft.UpdateDatetime.Format("Jan 02, 15:04"))
+				var templ_7745c5c3_Var60 string
+				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(draft.UpdateDatetime.Format("Jan 02, 15:04"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 456, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 455, Col: 55}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</p></div><div class=\"mt-1\"><p class=\"text-sm text-gray-500\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</p></div><div class=\"mt-1\"><p class=\"text-sm text-gray-500\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if draft.Subject != "" {
-					var templ_7745c5c3_Var60 string
-					templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(draft.Subject)
+					var templ_7745c5c3_Var61 string
+					templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(draft.Subject)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 462, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/dashboard.templ`, Line: 461, Col: 25}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "(no subject)")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "(no subject)")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</p></div></div></li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</p></div></div></li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<div class=\"flex flex-col items-center justify-center h-full text-gray-300 space-y-4\"><div class=\"h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center\"><svg class=\"h-10 w-10 opacity-20\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1\" d=\"M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z\"></path></svg></div><p class=\"font-bold text-sm tracking-wide uppercase\">No drafts</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<div class=\"flex flex-col items-center justify-center h-full text-gray-300 space-y-4\"><div class=\"h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center\"><svg class=\"h-10 w-10 opacity-20\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1\" d=\"M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z\"></path></svg></div><p class=\"font-bold text-sm tracking-wide uppercase\">No drafts</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

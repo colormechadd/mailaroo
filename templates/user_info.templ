@@ -17,7 +17,7 @@ templ UserInfo(user *models.User, mailboxes []models.Mailbox, sendingAddresses [
 					<p class="text-sm text-gray-500">User Settings</p>
 				</div>
 			</div>
-			<button class="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-2 hover:bg-gray-100 rounded-full" @click="history.pushState({}, '', '/mailbox/' + currentMailboxID + '?filter=' + filter); htmx.ajax('GET', '/mailbox/' + currentMailboxID + '?filter=' + filter, {target: '#main-content', swap: 'innerHTML'})" title="Close">
+			<button class="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-2 hover:bg-gray-100 rounded-full" @click="htmx.ajax('GET', '/mailbox/' + currentMailboxID + '?filter=' + filter, {target: '#main-content', swap: 'innerHTML', pushUrl: '/mailbox/' + currentMailboxID + '?filter=' + filter})" title="Close">
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 				</svg>

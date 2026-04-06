@@ -644,7 +644,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.MailboxContent(uuid.Nil, "all", nil))
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.MailboxContent(uuid.Nil, "all", nil, ""))
 }
 
 func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
@@ -699,7 +699,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails))
+	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, ""))
 }
 
 func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
@@ -1197,7 +1197,11 @@ func (s *Server) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses))
+	currentMailboxID := uuid.Nil
+	if len(mailboxes) > 0 {
+		currentMailboxID = mailboxes[0].ID
+	}
+	s.render(w, r, user, mailboxes, currentMailboxID, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses))
 }
 
 func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request) {
