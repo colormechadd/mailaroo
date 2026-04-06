@@ -589,7 +589,7 @@ func (s *Server) handleLoginGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, counts map[string]int, content templ.Component) {
-	if r.Header.Get("HX-Request") == "true" {
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-History-Restore-Request") != "true" {
 		content.Render(r.Context(), w)
 		return
 	}
@@ -1197,8 +1197,7 @@ func (s *Server) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	component := templates.UserInfo(user, mailboxes, sendingAddresses)
-	component.Render(r.Context(), w)
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses))
 }
 
 func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request) {
