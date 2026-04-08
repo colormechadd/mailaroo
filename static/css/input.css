@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Prevent Tailwind preflight from breaking email HTML layouts */
+.email-body-html img {
+  display: inline !important;
+}
+
 @utility scrollbar-hide {
   scrollbar-width: none;
   -ms-overflow-style: none;
