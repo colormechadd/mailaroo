@@ -131,9 +131,9 @@ templ SidebarFilterLink(mailboxID uuid.UUID, filterName string, label string, ic
 	</a>
 }
 
-templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, counts map[string]int, content templ.Component, csrfToken string) {
+templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, counts map[string]int, content templ.Component, csrfToken string, title string) {
 	{{ draftCount := counts["drafts"] }}
-	@Layout("Dashboard", csrfToken) {
+	@Layout(title, csrfToken) {
 		<div class="flex h-screen w-full overflow-hidden" 
 			 id="dashboard-root"
 			 hx-ext="sse"

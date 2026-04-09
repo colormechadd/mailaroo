@@ -306,7 +306,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 
 	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	counts := s.getCounts(r.Context(), uuid.Nil, user.ID) // No specific mailbox context here
-	s.render(w, r, user, mailboxes, uuid.Nil, "all", counts, templates.Compose(addresses, fromID, to, cc, bcc, subject, inReplyTo, references, draftID, title, body, bodyHTML))
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", counts, templates.Compose(addresses, fromID, to, cc, bcc, subject, inReplyTo, references, draftID, title, body, bodyHTML), "Compose")
 }
 
 func (s *Server) validateUserAccessToEmailID(next http.Handler) http.Handler {
@@ -594,12 +594,40 @@ func (s *Server) handleLoginGet(w http.ResponseWriter, r *http.Request) {
 	templates.LoginPage("", csrf.Token(r)).Render(r.Context(), w)
 }
 
-func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, counts map[string]int, content templ.Component) {
+func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.User, mailboxes []models.Mailbox, currentMailboxID uuid.UUID, filter string, counts map[string]int, content templ.Component, title string) {
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-History-Restore-Request") != "true" {
 		content.Render(r.Context(), w)
+		fmt.Fprintf(w, "<title>%s - Maileroo</title>", html.EscapeString(title))
 		return
 	}
-	templates.Dashboard(user, mailboxes, currentMailboxID, filter, counts, content, csrf.Token(r)).Render(r.Context(), w)
+	templates.Dashboard(user, mailboxes, currentMailboxID, filter, counts, content, csrf.Token(r), title).Render(r.Context(), w)
+}
+
+func filterTitle(filter string) string {
+	switch filter {
+	case "sent":
+		return "Sent"
+	case "unread":
+		return "Unread"
+	case "read":
+		return "Read"
+	case "starred":
+		return "Starred"
+	case "quarantined":
+		return "Quarantined"
+	case "deleted":
+		return "Deleted"
+	default:
+		return "Inbox"
+	}
+}
+
+func truncateTitle(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "…"
 }
 
 func (s *Server) draftCount(ctx context.Context, mailboxID uuid.UUID, userID uuid.UUID) int {
@@ -650,7 +678,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.MailboxContent(uuid.Nil, "all", nil, "", false))
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.MailboxContent(uuid.Nil, "all", nil, "", false), "Maileroo")
 }
 
 func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
@@ -694,7 +722,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.DraftsContent(mailboxID, drafts))
+		s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.DraftsContent(mailboxID, drafts), "Drafts")
 		return
 	}
 
@@ -707,7 +735,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hasMore := len(emails) == pageSize
-	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore))
+	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore), filterTitle(filter))
 }
 
 func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
@@ -753,7 +781,7 @@ func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
 
 	counts := s.getCounts(r.Context(), mailboxID, user.ID)
 	hasMore := len(emails) == pageSize
-	s.render(w, r, user, mailboxes, mailboxID, "search", counts, templates.SearchContent(mailboxID, query, emails, hasMore))
+	s.render(w, r, user, mailboxes, mailboxID, "search", counts, templates.SearchContent(mailboxID, query, emails, hasMore), "Search: "+query)
 }
 
 func encodeCursor(t time.Time, id uuid.UUID) string {
@@ -933,7 +961,7 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	counts := s.getCounts(r.Context(), email.MailboxID, user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailDetail(email, attachments, content, isHTML, unsubInfo))
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailDetail(email, attachments, content, isHTML, unsubInfo), truncateTitle(email.Subject, 60))
 }
 
 func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
@@ -1192,7 +1220,7 @@ func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	counts := s.getCounts(r.Context(), email.MailboxID, user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailHeaders(email, headers))
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailHeaders(email, headers), truncateTitle(email.Subject, 60))
 }
 
 func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
@@ -1230,7 +1258,7 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	counts := s.getCounts(r.Context(), email.MailboxID, user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailPipeline(email, steps))
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailPipeline(email, steps), truncateTitle(email.Subject, 60))
 }
 
 func securityHeaders(next http.Handler) http.Handler {
@@ -1426,7 +1454,7 @@ func (s *Server) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	if len(mailboxes) > 0 {
 		currentMailboxID = mailboxes[0].ID
 	}
-	s.render(w, r, user, mailboxes, currentMailboxID, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses))
+	s.render(w, r, user, mailboxes, currentMailboxID, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses), "Account")
 }
 
 func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request) {

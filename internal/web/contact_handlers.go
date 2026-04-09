@@ -36,7 +36,7 @@ func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
-	s.render(w, r, user, mailboxes, uuid.Nil, "contacts", nil, templates.ContactsPage(contacts, selected))
+	s.render(w, r, user, mailboxes, uuid.Nil, "contacts", nil, templates.ContactsPage(contacts, selected), "Contacts")
 }
 
 func (s *Server) handleContactSearch(w http.ResponseWriter, r *http.Request) {
@@ -248,5 +248,5 @@ func (s *Server) handleAddContactFromEmail(w http.ResponseWriter, r *http.Reques
 	}
 
 	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
-	s.render(w, r, user, mailboxes, uuid.Nil, "contacts", nil, templates.ContactsPage(contacts, selected))
+	s.render(w, r, user, mailboxes, uuid.Nil, "contacts", nil, templates.ContactsPage(contacts, selected), "Contacts")
 }
