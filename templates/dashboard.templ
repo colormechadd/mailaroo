@@ -139,6 +139,7 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 			 hx-ext="sse"
 			 sse-connect="/events"
 			 x-data={ "{ currentMailboxID: '" + currentMailboxID.String() + "', filter: '" + filter + "' }" }
+			 @nav-update.window="currentMailboxID = $event.detail.mailboxID; filter = $event.detail.filter"
 		>
 			<!-- Listen for new-mail and refresh the list if we are in that mailbox -->
 			<div sse-swap="new-mail" hx-get={ "/mailbox/" + currentMailboxID.String() + "?filter=" + filter } hx-target="#main-content" class="hidden"></div>
@@ -215,9 +216,14 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 										hx-get={ "/mailbox/" + mb.ID.String() + "/filters" }
 										hx-target="#main-content"
 										hx-push-url="true"
-										class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer group text-gray-500 hover:text-purple-600 hover:bg-purple-50/50"
+										x-on:click={ "filter = 'filters'; currentMailboxID = '" + mb.ID.String() + "'" }
+										class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer group"
+										:class={ fmt.Sprintf("currentMailboxID === '%s' && filter === 'filters' ? 'bg-purple-100 text-purple-900' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50/50'", mb.ID.String()) }
 									>
-										<div class="h-5 w-5 text-gray-400 group-hover:text-purple-500">
+										<div
+											class="h-5 w-5"
+											:class={ fmt.Sprintf("currentMailboxID === '%s' && filter === 'filters' ? 'text-purple-600' : 'text-gray-400 group-hover:text-purple-500'", mb.ID.String()) }
+										>
 											<svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
 											</svg>

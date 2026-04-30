@@ -80,7 +80,7 @@ templ FilterRulesList(mailboxID uuid.UUID, rules []*models.FilterRule) {
 	</div>
 }
 
-templ FilterRuleForm(mailboxID uuid.UUID, rule *models.FilterRule) {
+templ FilterRuleForm(mailboxID uuid.UUID, rule *models.FilterRule, csrfToken string) {
 	{{ isEdit := rule != nil }}
 	{{ title := "New Filter Rule" }}
 	if isEdit {
@@ -112,6 +112,7 @@ templ FilterRuleForm(mailboxID uuid.UUID, rule *models.FilterRule) {
 					class="space-y-6"
 					x-data={ filterFormData(rule) }
 				>
+					<input type="hidden" name="gorilla.csrf.Token" value={ csrfToken }/>
 					if isEdit {
 						<input type="hidden" name="_method" value="PUT"/>
 					}

@@ -73,6 +73,19 @@ templ Layout(title string, csrfToken string) {
 					const token = document.querySelector('meta[name="csrf-token"]');
 					if (token) e.detail.headers['X-CSRF-Token'] = token.content;
 				});
+				document.addEventListener('htmx:afterSettle', function() {
+					const path = window.location.pathname;
+					const params = new URLSearchParams(window.location.search);
+					const mailboxMatch = path.match(/^\/mailbox\/([0-9a-f-]{36})(\/(.+))?/);
+					if (mailboxMatch) {
+						const mailboxID = mailboxMatch[1];
+						const sub = mailboxMatch[3] || '';
+						const filter = sub.startsWith('filters') ? 'filters' : (params.get('filter') || 'all');
+						window.dispatchEvent(new CustomEvent('nav-update', { detail: { mailboxID, filter } }));
+					} else if (path.startsWith('/contacts')) {
+						window.dispatchEvent(new CustomEvent('nav-update', { detail: { mailboxID: '', filter: 'contacts' } }));
+					}
+				});
 			</script>
 		</head>
 		<body class="h-full bg-gray-50 text-gray-900 font-sans antialiased">

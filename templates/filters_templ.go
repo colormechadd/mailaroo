@@ -201,7 +201,7 @@ func FilterRulesList(mailboxID uuid.UUID, rules []*models.FilterRule) templ.Comp
 	})
 }
 
-func FilterRuleForm(mailboxID uuid.UUID, rule *models.FilterRule) templ.Component {
+func FilterRuleForm(mailboxID uuid.UUID, rule *models.FilterRule, csrfToken string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -300,170 +300,183 @@ func FilterRuleForm(mailboxID uuid.UUID, rule *models.FilterRule) templ.Componen
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"><input type=\"hidden\" name=\"gorilla.csrf.Token\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 115, Col: 69}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if isEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<input type=\"hidden\" name=\"_method\" value=\"PUT\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<input type=\"hidden\" name=\"_method\" value=\"PUT\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<!-- Name --><div class=\"bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-4\"><h2 class=\"text-sm font-bold text-gray-700 uppercase tracking-wider\">Rule Details</h2><div><label class=\"block text-sm font-medium text-gray-700 mb-1\">Rule name</label> <input type=\"text\" name=\"name\" placeholder=\"e.g. Archive newsletters\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<!-- Name --><div class=\"bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-4\"><h2 class=\"text-sm font-bold text-gray-700 uppercase tracking-wider\">Rule Details</h2><div><label class=\"block text-sm font-medium text-gray-700 mb-1\">Rule name</label> <input type=\"text\" name=\"name\" placeholder=\"e.g. Archive newsletters\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if isEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, " value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var18 string
-			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(rule.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 129, Col: 26}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, " class=\"w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-300\"></div><div class=\"flex items-center gap-6\"><label class=\"flex items-center gap-2 cursor-pointer\"><input type=\"checkbox\" name=\"is_active\" value=\"on\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if isEdit && rule.IsActive {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " checked")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		if !isEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " checked")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, " class=\"rounded border-gray-300 text-purple-600 focus:ring-purple-500\"> <span class=\"text-sm text-gray-700\">Active</span></label> <label class=\"flex items-center gap-2 cursor-pointer\"><input type=\"checkbox\" name=\"stop_processing\" value=\"on\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if isEdit && rule.StopProcessing {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, " checked")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		if !isEdit {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, " checked")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, " class=\"rounded border-gray-300 text-purple-600 focus:ring-purple-500\"> <span class=\"text-sm text-gray-700\">Stop processing further rules on match</span></label></div></div><!-- Conditions --><div class=\"bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-4\"><div class=\"flex items-center justify-between\"><h2 class=\"text-sm font-bold text-gray-700 uppercase tracking-wider\">Conditions</h2><div class=\"flex items-center gap-3\"><span class=\"text-xs text-gray-500\">Match</span> <select name=\"match_all\" class=\"text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-300\"><option value=\"true\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if !isEdit || rule.MatchAll {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " selected")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, ">all (AND)</option> <option value=\"false\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if isEdit && !rule.MatchAll {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, " selected")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, ">any (OR)</option></select></div></div><div class=\"space-y-2\" id=\"conditions-list\"><template x-for=\"(cond, index) in conditions\" :key=\"index\"><div class=\"flex items-center gap-2\"><select :name=\"'condition_field'\" class=\"text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300\" x-model=\"cond.field\"><option value=\"from\">From</option> <option value=\"to\">To</option> <option value=\"subject\">Subject</option> <option value=\"body\">Body</option> <option value=\"has_attachment\">Has Attachment</option></select> <select :name=\"'condition_operator'\" class=\"text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300\" x-model=\"cond.operator\"><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"contains\">contains</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"not_contains\">does not contain</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"is\">is</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"is_not\">is not</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"matches_regex\">matches regex</option></template><template x-if=\"cond.field === 'has_attachment'\"><option value=\"is\">is true</option></template><template x-if=\"cond.field === 'has_attachment'\"><option value=\"is_not\">is false</option></template></select> <input x-show=\"cond.field !== 'has_attachment'\" :name=\"'condition_value'\" x-model=\"cond.value\" type=\"text\" placeholder=\"value\" class=\"flex-1 text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300\"> <input x-show=\"cond.field === 'has_attachment'\" type=\"hidden\" :name=\"'condition_value'\" value=\"\"> <button type=\"button\" @click=\"removeCondition(index)\" class=\"text-gray-400 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0\"><svg class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></template></div><button type=\"button\" @click=\"addCondition()\" class=\"flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-800 font-medium cursor-pointer\"><svg class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.5\" d=\"M12 4v16m8-8H4\"></path></svg> Add condition</button></div><!-- Action --><div class=\"bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-3\"><h2 class=\"text-sm font-bold text-gray-700 uppercase tracking-wider\">Action</h2><div class=\"grid grid-cols-2 gap-2 sm:grid-cols-3\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, opt := range filterActionOptions() {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<label class=\"flex items-center gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-purple-400 transition-colors has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50\"><input type=\"radio\" name=\"action\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, " value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var19 string
-			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(opt.value)
+			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(rule.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 255, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 130, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if isEdit && rule.Action == opt.value {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, " checked")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " class=\"w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-300\"></div><div class=\"flex items-center gap-6\"><label class=\"flex items-center gap-2 cursor-pointer\"><input type=\"checkbox\" name=\"is_active\" value=\"on\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if isEdit && rule.IsActive {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " checked")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
-			if !isEdit && opt.value == "archive" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " checked")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+		}
+		if !isEdit {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, " checked")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " class=\"text-purple-600 focus:ring-purple-500\"> <span class=\"text-sm font-medium text-gray-700\">")
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, " class=\"rounded border-gray-300 text-purple-600 focus:ring-purple-500\"> <span class=\"text-sm text-gray-700\">Active</span></label> <label class=\"flex items-center gap-2 cursor-pointer\"><input type=\"checkbox\" name=\"stop_processing\" value=\"on\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if isEdit && rule.StopProcessing {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, " checked")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		if !isEdit {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, " checked")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " class=\"rounded border-gray-300 text-purple-600 focus:ring-purple-500\"> <span class=\"text-sm text-gray-700\">Stop processing further rules on match</span></label></div></div><!-- Conditions --><div class=\"bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-4\"><div class=\"flex items-center justify-between\"><h2 class=\"text-sm font-bold text-gray-700 uppercase tracking-wider\">Conditions</h2><div class=\"flex items-center gap-3\"><span class=\"text-xs text-gray-500\">Match</span> <select name=\"match_all\" class=\"text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-300\"><option value=\"true\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !isEdit || rule.MatchAll {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, ">all (AND)</option> <option value=\"false\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if isEdit && !rule.MatchAll {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, ">any (OR)</option></select></div></div><div class=\"space-y-2\" id=\"conditions-list\"><template x-for=\"(cond, index) in conditions\" :key=\"index\"><div class=\"flex items-center gap-2\"><select :name=\"'condition_field'\" class=\"text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300\" x-model=\"cond.field\"><option value=\"from\">From</option> <option value=\"to\">To</option> <option value=\"subject\">Subject</option> <option value=\"body\">Body</option> <option value=\"has_attachment\">Has Attachment</option></select> <select :name=\"'condition_operator'\" class=\"text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300\" x-model=\"cond.operator\"><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"contains\">contains</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"not_contains\">does not contain</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"is\">is</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"is_not\">is not</option></template><template x-if=\"cond.field !== 'has_attachment'\"><option value=\"matches_regex\">matches regex</option></template><template x-if=\"cond.field === 'has_attachment'\"><option value=\"is\">is true</option></template><template x-if=\"cond.field === 'has_attachment'\"><option value=\"is_not\">is false</option></template></select> <input x-show=\"cond.field !== 'has_attachment'\" :name=\"'condition_value'\" x-model=\"cond.value\" type=\"text\" placeholder=\"value\" class=\"flex-1 text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300\"> <input x-show=\"cond.field === 'has_attachment'\" type=\"hidden\" :name=\"'condition_value'\" value=\"\"> <button type=\"button\" @click=\"removeCondition(index)\" class=\"text-gray-400 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0\"><svg class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button></div></template></div><button type=\"button\" @click=\"addCondition()\" class=\"flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-800 font-medium cursor-pointer\"><svg class=\"w-4 h-4\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2.5\" d=\"M12 4v16m8-8H4\"></path></svg> Add condition</button></div><!-- Action --><div class=\"bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-3\"><h2 class=\"text-sm font-bold text-gray-700 uppercase tracking-wider\">Action</h2><div class=\"grid grid-cols-2 gap-2 sm:grid-cols-3\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, opt := range filterActionOptions() {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<label class=\"flex items-center gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-purple-400 transition-colors has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50\"><input type=\"radio\" name=\"action\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
-			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(opt.label)
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(opt.value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 264, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 256, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</span></label>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if isEdit && rule.Action == opt.value {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " checked")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			if !isEdit && opt.value == "archive" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " checked")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " class=\"text-purple-600 focus:ring-purple-500\"> <span class=\"text-sm font-medium text-gray-700\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(opt.label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 265, Col: 68}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</span></label>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</div></div><div class=\"flex justify-end gap-3\"><a href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</div></div><div class=\"flex justify-end gap-3\"><a href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var21 templ.SafeURL
-		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/mailbox/" + mailboxID.String() + "/filters"))
+		var templ_7745c5c3_Var22 templ.SafeURL
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/mailbox/" + mailboxID.String() + "/filters"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 272, Col: 70}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" hx-get=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var22 string
-		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("/mailbox/" + mailboxID.String() + "/filters")
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 273, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 273, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" hx-target=\"#main-content\" hx-push-url=\"true\" class=\"px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 cursor-pointer\">Cancel</a> <button type=\"submit\" class=\"px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all cursor-pointer\">Save Rule</button></div></form></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" hx-get=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 string
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("/mailbox/" + mailboxID.String() + "/filters")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/filters.templ`, Line: 274, Col: 61}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\" hx-target=\"#main-content\" hx-push-url=\"true\" class=\"px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 cursor-pointer\">Cancel</a> <button type=\"submit\" class=\"px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all cursor-pointer\">Save Rule</button></div></form></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

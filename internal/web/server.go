@@ -1653,7 +1653,7 @@ func (s *Server) handleFilterRulesList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, mailboxID, "all", nil, templates.FilterRulesList(mailboxID, rules), "Filters")
+	s.render(w, r, user, mailboxes, mailboxID, "filters", nil, templates.FilterRulesList(mailboxID, rules), "Filters")
 }
 
 func (s *Server) handleFilterRuleNew(w http.ResponseWriter, r *http.Request) {
@@ -1664,7 +1664,7 @@ func (s *Server) handleFilterRuleNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, mailboxID, "all", nil, templates.FilterRuleForm(mailboxID, nil), "New Filter")
+	s.render(w, r, user, mailboxes, mailboxID, "filters", nil, templates.FilterRuleForm(mailboxID, nil, csrf.Token(r)), "New Filter")
 }
 
 func (s *Server) handleFilterRuleCreate(w http.ResponseWriter, r *http.Request) {
@@ -1709,7 +1709,7 @@ func (s *Server) handleFilterRuleEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, mailboxID, "all", nil, templates.FilterRuleForm(mailboxID, rule), "Edit Filter")
+	s.render(w, r, user, mailboxes, mailboxID, "filters", nil, templates.FilterRuleForm(mailboxID, rule, csrf.Token(r)), "Edit Filter")
 }
 
 func (s *Server) handleFilterRuleUpdate(w http.ResponseWriter, r *http.Request) {
