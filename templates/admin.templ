@@ -1,0 +1,980 @@
+package templates
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/colormechadd/mailaroo/pkg/models"
+)
+
+type DNSCheckResult struct {
+	Passed   bool
+	Found    string
+	Expected string
+}
+
+// --- Shared helpers ---
+
+templ statusBadge(active bool) {
+	if active {
+		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>
+	} else {
+		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Inactive</span>
+	}
+}
+
+templ roleBadge(isAdmin bool) {
+	if isAdmin {
+		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">Admin</span>
+	} else {
+		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-400">User</span>
+	}
+}
+
+templ localDomainInput(localName, domainName, placeholder string, domains []string) {
+	<div class="flex items-center gap-1 flex-1 min-w-48">
+		<input
+			type="text"
+			name={ localName }
+			placeholder={ placeholder }
+			required
+			class="w-36 shrink-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+		/>
+		<span class="text-gray-400 font-medium text-sm">{ "@" }</span>
+		@domainSelect(domainName, "flex-1", domains)
+	</div>
+}
+
+templ domainSelect(name string, extraClass string, domains []string) {
+	<select name={ name } class={ "px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none", extraClass }>
+		if len(domains) == 0 {
+			<option value="">No domains configured</option>
+		} else {
+			for i, d := range domains {
+				if i == 0 {
+					<option value={ d } selected>{ d }</option>
+				} else {
+					<option value={ d }>{ d }</option>
+				}
+			}
+		}
+	</select>
+}
+
+templ adminBackLink(href string) {
+	<a
+		href={ templ.URL(href) }
+		hx-get={ href }
+		hx-target="#main-content"
+		hx-push-url="true"
+		hx-swap="innerHTML"
+		class="text-gray-400 hover:text-purple-600 transition-colors"
+	>
+		<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+		</svg>
+	</a>
+}
+
+templ csrfInput(token string) {
+	<input type="hidden" name="gorilla.csrf.Token" value={ token }/>
+}
+
+// --- Tables ---
+
+templ totpBadge(enabled bool) {
+	if enabled {
+		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Enabled</span>
+	} else {
+		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-400">Off</span>
+	}
+}
+
+templ adminUserTable(users []models.User) {
+	if len(users) == 0 {
+		<div class="px-6 py-8 text-center text-sm text-gray-400">No users yet.</div>
+	} else {
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-100 bg-gray-50/50">
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Username</th>
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Role</th>
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">2FA</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-50">
+				for _, u := range users {
+					<tr
+						hx-get={ "/admin/users/" + u.ID.String() }
+						hx-target="#main-content"
+						hx-push-url="true"
+						hx-swap="innerHTML"
+						class="hover:bg-purple-50/30 cursor-pointer"
+					>
+						<td class="px-6 py-4 font-medium text-purple-700">{ u.Username }</td>
+						<td class="px-6 py-4">@statusBadge(u.IsActive)</td>
+						<td class="px-6 py-4">@roleBadge(u.IsAdmin)</td>
+						<td class="px-6 py-4">@totpBadge(u.TOTPEnabled)</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ adminUserMailboxTable(mailboxes []models.Mailbox, userID string) {
+	if len(mailboxes) == 0 {
+		<div class="px-6 py-8 text-center text-sm text-gray-400">No mailboxes.</div>
+	} else {
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-100 bg-gray-50/50">
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Name</th>
+					<th class="px-6 py-3"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-50">
+				for _, mb := range mailboxes {
+					{{ manageURL := "/admin/mailboxes/" + mb.ID.String() + "?from=/admin/users/" + userID }}
+					<tr>
+						<td class="px-6 py-4 font-medium text-gray-900">{ mb.Name }</td>
+						<td class="px-6 py-4 text-right">
+							<a
+								href={ templ.URL(manageURL) }
+								hx-get={ manageURL }
+								hx-target="#main-content"
+								hx-push-url="true"
+								hx-swap="innerHTML"
+								class="text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors"
+							>
+								Manage →
+							</a>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ adminUserSendingAddressTable(sendingAddrs []models.SendingAddress, allMailboxes []models.Mailbox, userID string, csrfToken string) {
+	if len(sendingAddrs) == 0 {
+		<div class="px-6 py-8 text-center text-sm text-gray-400">No sending addresses.</div>
+	} else {
+		{{ mbNames := map[string]string{}
+		for _, mb := range allMailboxes {
+			mbNames[mb.ID.String()] = mb.Name
+		} }}
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-100 bg-gray-50/50">
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Address</th>
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Mailbox</th>
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+					<th class="px-6 py-3"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-50">
+				for _, sa := range sendingAddrs {
+					<tr>
+						<td class="px-6 py-4 font-medium text-gray-900">{ sa.Address }</td>
+						<td class="px-6 py-4 text-gray-500 text-sm">{ mbNames[sa.MailboxID.String()] }</td>
+						<td class="px-6 py-4">@statusBadge(sa.IsActive)</td>
+						<td class="px-6 py-4 text-right">
+							if sa.IsActive {
+								<form hx-post={ "/admin/sending-addresses/" + sa.ID.String() + "/deactivate" } hx-target="#main-content" hx-swap="innerHTML">
+									@csrfInput(csrfToken)
+									<input type="hidden" name="redirect_to" value={ "/admin/users/" + userID }/>
+									<button type="submit" class="text-xs font-medium text-red-500 hover:text-red-700 transition-colors" onclick="return confirm('Deactivate this sending address?')">Deactivate</button>
+								</form>
+							} else {
+								<form hx-post={ "/admin/sending-addresses/" + sa.ID.String() + "/reactivate" } hx-target="#main-content" hx-swap="innerHTML">
+									@csrfInput(csrfToken)
+									<input type="hidden" name="redirect_to" value={ "/admin/users/" + userID }/>
+									<button type="submit" class="text-xs font-medium text-green-600 hover:text-green-800 transition-colors">Reactivate</button>
+								</form>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ adminMailboxListTable(mailboxes []models.Mailbox) {
+	if len(mailboxes) == 0 {
+		<div class="px-6 py-8 text-center text-sm text-gray-400">No mailboxes yet.</div>
+	} else {
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-100 bg-gray-50/50">
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Name</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-50">
+				for _, mb := range mailboxes {
+					<tr
+						hx-get={ "/admin/mailboxes/" + mb.ID.String() }
+						hx-target="#main-content"
+						hx-push-url="true"
+						hx-swap="innerHTML"
+						class="hover:bg-purple-50/30 cursor-pointer"
+					>
+						<td class="px-6 py-4 font-medium text-gray-900">{ mb.Name }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ adminDomainTable(keys []models.DKIMKey, csrfToken string) {
+	<table class="w-full text-sm">
+		<thead>
+			<tr class="border-b border-gray-100 bg-gray-50/50">
+				<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Domain</th>
+				<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Selector</th>
+				<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+				<th class="px-6 py-3"></th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-gray-50">
+			for _, k := range keys {
+				<tr>
+					<td class="px-6 py-4 font-medium text-gray-900">{ k.Domain }</td>
+					<td class="px-6 py-4 font-mono text-xs text-gray-500">{ k.Selector }</td>
+					<td class="px-6 py-4">@statusBadge(k.IsActive)</td>
+					<td class="px-6 py-4 text-right space-x-3">
+						<a
+							href={ templ.URL("/admin/domains/" + k.Domain + "/dns") }
+							hx-get={ "/admin/domains/" + k.Domain + "/dns" }
+							hx-target="#main-content"
+							hx-push-url="true"
+							hx-swap="innerHTML"
+							class="text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors"
+						>
+							DNS Records
+						</a>
+						<form class="inline" hx-post={ "/admin/domains/" + k.Domain + "/rotate" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+							@csrfInput(csrfToken)
+							<button
+								type="submit"
+								class="text-xs font-medium text-gray-500 hover:text-purple-600 transition-colors"
+								data-confirm={ "Rotate DKIM key for " + k.Domain + "? You must update your DNS TXT record after rotating." }
+								onclick="return confirm(this.dataset.confirm)"
+							>Rotate Key</button>
+						</form>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+templ sendingAddressTable(addrs []models.SendingAddressWithUser, showMailbox bool, redirectTo string, csrfToken string) {
+	if len(addrs) == 0 {
+		<div class="px-6 py-8 text-center text-sm text-gray-400">No sending addresses.</div>
+	} else {
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-100 bg-gray-50/50">
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Address</th>
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">User</th>
+					if showMailbox {
+						<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Mailbox</th>
+					}
+					<th class="text-left px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest">Status</th>
+					<th class="px-6 py-3"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-50">
+				for _, sa := range addrs {
+					<tr>
+						<td class="px-6 py-4 font-medium text-gray-900">{ sa.Address }</td>
+						<td class="px-6 py-4 text-gray-500">
+							<a
+								href={ templ.URL("/admin/users/" + sa.UserID.String()) }
+								hx-get={ "/admin/users/" + sa.UserID.String() }
+								hx-target="#main-content"
+								hx-push-url="true"
+								hx-swap="innerHTML"
+								class="hover:text-purple-700 transition-colors"
+							>{ sa.Username }</a>
+						</td>
+						if showMailbox {
+							<td class="px-6 py-4 text-gray-500">{ sa.MailboxName }</td>
+						}
+						<td class="px-6 py-4">@statusBadge(sa.IsActive)</td>
+						<td class="px-6 py-4 text-right">
+							if sa.IsActive {
+								<form class="inline" hx-post={ "/admin/sending-addresses/" + sa.ID.String() + "/deactivate" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ redirectTo }>
+									@csrfInput(csrfToken)
+									<input type="hidden" name="redirect_to" value={ redirectTo }/>
+									<button type="submit" class="text-xs font-medium text-red-500 hover:text-red-700 transition-colors" onclick="return confirm('Deactivate this sending address?')">Deactivate</button>
+								</form>
+							} else {
+								<form class="inline" hx-post={ "/admin/sending-addresses/" + sa.ID.String() + "/reactivate" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ redirectTo }>
+									@csrfInput(csrfToken)
+									<input type="hidden" name="redirect_to" value={ redirectTo }/>
+									<button type="submit" class="text-xs font-medium text-green-600 hover:text-green-800 transition-colors">Reactivate</button>
+								</form>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+// --- Layout ---
+
+templ AdminDashboard(user *models.User, content templ.Component, csrfToken string, title string) {
+	@Layout(title+" - Admin", csrfToken) {
+		<div class="flex h-screen w-full overflow-hidden">
+			<!-- Admin Sidebar -->
+			<aside
+				class="w-64 flex-shrink-0 bg-white border-r border-purple-100 flex flex-col"
+				x-data="{ section: '' }"
+				x-init="
+					const update = () => {
+						const p = window.location.pathname;
+						if (p.startsWith('/admin/users')) section = 'users';
+						else if (p.startsWith('/admin/mailboxes')) section = 'mailboxes';
+						else if (p.startsWith('/admin/sending-addresses')) section = 'sending-addresses';
+						else if (p.startsWith('/admin/domains')) section = 'domains';
+						else section = '';
+					};
+					update();
+					document.addEventListener('htmx:afterSettle', update);
+				"
+			>
+				<div class="p-6">
+					<div class="flex items-center gap-3 mb-8">
+						<img class="h-10 w-auto" src="/static/img/mailaroo.png" alt="MAILAROO Logo"/>
+						<div>
+							<span class="text-xl font-extrabold text-gray-900 tracking-tight">MAILAROO</span>
+							<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-600 text-white">Admin</span>
+						</div>
+					</div>
+				</div>
+				<nav class="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-hide">
+					@adminNavItem("/admin/users", "users", "Users") {
+						@IconContacts()
+					}
+					@adminNavItem("/admin/mailboxes", "mailboxes", "Mailboxes") {
+						@IconInbox()
+					}
+					@adminNavItem("/admin/sending-addresses", "sending-addresses", "Sending Addresses") {
+						@IconSent()
+					}
+					@adminNavItem("/admin/domains", "domains", "Domains") {
+						@IconShield()
+					}
+				</nav>
+				<div class="px-4 py-2 border-t border-purple-100">
+					<a
+						href="/"
+						class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-500 hover:text-purple-600 hover:bg-purple-50/50"
+					>
+						<div class="h-5 w-5 text-gray-400">
+							<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+							</svg>
+						</div>
+						Back to Mail
+					</a>
+				</div>
+				<div class="p-4 border-t border-purple-100 bg-gray-50/50">
+					<div class="flex items-center px-4 py-3">
+						<div class="flex-shrink-0">
+							<div class="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+								{ strings.ToUpper(user.Username[:2]) }
+							</div>
+						</div>
+						<div class="ml-3 overflow-hidden">
+							<p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Logged in as</p>
+							<p class="text-sm font-bold text-gray-900 truncate">{ user.Username }</p>
+						</div>
+					</div>
+					<a href="/logout" class="mt-2 block">
+						<button type="button" class="w-full text-left px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer flex items-center gap-2">
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+							</svg>
+							Sign out
+						</button>
+					</a>
+				</div>
+			</aside>
+			<!-- Main Content Area -->
+			<main class="flex-1 flex flex-col bg-gray-50 overflow-y-scroll" id="main-content">
+				@content
+			</main>
+		</div>
+	}
+}
+
+templ adminNavItem(href string, sectionName string, label string) {
+	<a
+		href={ templ.URL(href) }
+		hx-get={ href }
+		hx-target="#main-content"
+		hx-push-url="true"
+		hx-swap="innerHTML"
+		class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+		:class={ fmt.Sprintf("section === '%s' ? 'bg-purple-100 text-purple-900' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50/50'", sectionName) }
+	>
+		<div
+			class="h-5 w-5"
+			:class={ fmt.Sprintf("section === '%s' ? 'text-purple-600' : 'text-gray-400'", sectionName) }
+		>
+			{ children... }
+		</div>
+		{ label }
+	</a>
+}
+
+// --- Users ---
+
+templ AdminUserList(users []models.User, mailboxes []models.Mailbox, domains []string, csrfToken string) {
+	<div class="p-8 w-full max-w-4xl mx-auto">
+		<div x-data="{ open: false, mode: 'new', username: '' }">
+			<div class="flex items-center justify-between mb-6">
+				<h1 class="text-2xl font-bold text-gray-900">Users</h1>
+				<button
+					type="button"
+					@click="open = !open"
+					class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+					x-text="open ? 'Cancel' : 'Add User'"
+				></button>
+			</div>
+			<div x-show="open" x-cloak class="mb-6 bg-white rounded-xl border border-purple-100 shadow-sm p-6">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest">New User</h2>
+					<div class="flex gap-1">
+						<button type="button" @click="mode='new'" :class="mode==='new' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-500'" class="px-3 py-1 text-xs font-semibold rounded-lg transition-colors">New Mailbox</button>
+						<button type="button" @click="mode='existing'" :class="mode==='existing' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-500'" class="px-3 py-1 text-xs font-semibold rounded-lg transition-colors">Existing Mailbox</button>
+					</div>
+				</div>
+				<form hx-post="/admin/users" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" class="space-y-3">
+					@csrfInput(csrfToken)
+					<input type="hidden" name="mode" :value="mode"/>
+					<div class="flex gap-3">
+						<input
+							type="text"
+							name="username"
+							placeholder="Username"
+							required
+							x-model="username"
+							@blur="if(!$refs.mailboxName.value) $refs.mailboxName.value = username + ' Inbox';
+							       if(!$refs.recvLocal.value)  $refs.recvLocal.value  = username + '(\\+.*)?';
+							       if(!$refs.sendLocal.value)  $refs.sendLocal.value  = username;
+							       if(!$refs.saLocal.value)    $refs.saLocal.value    = username"
+							class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+						/>
+						<input type="password" name="password" placeholder="Password" required class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+					</div>
+					<!-- New mailbox mode -->
+					<div x-show="mode === 'new'" class="space-y-2">
+						<input x-ref="mailboxName" type="text" name="mailbox_name" placeholder="Mailbox name" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+						<div class="flex items-center gap-2">
+							<div x-data="{ regexHelp: false }" class="relative flex items-center gap-1 w-20 shrink-0">
+								<span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Receive</span>
+								<button type="button" @click="regexHelp = !regexHelp" class="text-gray-400 hover:text-purple-600 transition-colors">
+									@IconInfo()
+								</button>
+								<div
+									x-show="regexHelp"
+									x-cloak
+									@click.outside="regexHelp = false"
+									class="absolute left-0 top-6 z-20 w-80 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-xs text-gray-700 space-y-2"
+								>
+									<p class="font-bold text-gray-900 text-sm">Postgres Regex Patterns</p>
+									<p>Address matching uses <code class="bg-gray-100 px-1 rounded">~*</code> (case-insensitive). The pattern is anchored to the full local part.</p>
+									<table class="w-full border-collapse">
+										<thead>
+											<tr class="text-gray-500 border-b border-gray-100">
+												<th class="text-left py-1 pr-2 font-semibold">Pattern</th>
+												<th class="text-left py-1 font-semibold">Matches</th>
+											</tr>
+										</thead>
+										<tbody class="space-y-1">
+											<tr class="border-b border-gray-50">
+												<td class="py-1 pr-2 font-mono bg-gray-50 rounded px-1">alice</td>
+												<td class="py-1">exactly <em>alice</em></td>
+											</tr>
+											<tr class="border-b border-gray-50">
+												<td class="py-1 pr-2 font-mono bg-gray-50 rounded px-1">alice(\+.*)?</td>
+												<td class="py-1">alice or alice+anything</td>
+											</tr>
+											<tr class="border-b border-gray-50">
+												<td class="py-1 pr-2 font-mono bg-gray-50 rounded px-1">alice\+.*</td>
+												<td class="py-1">alice+anything only</td>
+											</tr>
+											<tr class="border-b border-gray-50">
+												<td class="py-1 pr-2 font-mono bg-gray-50 rounded px-1">.*</td>
+												<td class="py-1">any local part (catch-all)</td>
+											</tr>
+											<tr>
+												<td class="py-1 pr-2 font-mono bg-gray-50 rounded px-1">support|billing</td>
+												<td class="py-1">support or billing</td>
+											</tr>
+										</tbody>
+									</table>
+									<p class="text-gray-500">Special chars <code class="bg-gray-100 px-1 rounded">. + ( )</code> must be escaped with <code class="bg-gray-100 px-1 rounded">\</code>.</p>
+								</div>
+							</div>
+							<input x-ref="recvLocal" type="text" name="recv_local" placeholder="regex pattern" class="w-44 shrink-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+							<span class="text-gray-400 text-sm font-medium">{ "@" }</span>
+							@domainSelect("recv_domain", "flex-1", domains)
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="text-xs font-bold text-gray-400 uppercase tracking-widest w-20 shrink-0">Send</span>
+							<input x-ref="sendLocal" type="text" name="send_local" placeholder="username" class="w-44 shrink-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+							<span class="text-gray-400 text-sm font-medium">{ "@" }</span>
+							@domainSelect("send_domain", "flex-1", domains)
+						</div>
+					</div>
+					<!-- Existing mailbox mode -->
+					<div x-show="mode === 'existing'" class="space-y-2">
+						<select name="mailbox_id" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+							<option value="">Select mailbox...</option>
+							for _, mb := range mailboxes {
+								<option value={ mb.ID.String() }>{ mb.Name }</option>
+							}
+						</select>
+						<div class="flex items-center gap-2">
+							<span class="text-xs font-bold text-gray-400 uppercase tracking-widest w-20 shrink-0">Send from (opt.)</span>
+							<input x-ref="saLocal" type="text" name="sa_local" placeholder="username" class="w-44 shrink-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+							<span class="text-gray-400 text-sm font-medium">{ "@" }</span>
+							@domainSelect("sa_domain", "flex-1", domains)
+						</div>
+					</div>
+					<div class="flex justify-end">
+						<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">Create</button>
+					</div>
+				</form>
+			</div>
+			<div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+				@adminUserTable(users)
+			</div>
+		</div>
+	</div>
+}
+
+templ AdminUserDetail(u models.User, mailboxes []models.Mailbox, allMailboxes []models.Mailbox, sendingAddrs []models.SendingAddress, domains []string, csrfToken string) {
+	<div class="p-8 w-full max-w-4xl mx-auto space-y-8">
+		<!-- Header -->
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-3">
+				@adminBackLink("/admin/users")
+				<h1 class="text-2xl font-bold text-gray-900">{ u.Username }</h1>
+				@statusBadge(u.IsActive)
+				if u.IsAdmin {
+					@roleBadge(u.IsAdmin)
+				}
+			</div>
+			<div class="flex items-center gap-2">
+				<form hx-post={ "/admin/users/" + u.ID.String() + "/toggle-active" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ "/admin/users/" + u.ID.String() }>
+					@csrfInput(csrfToken)
+					<button type="submit" class={ "px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors",
+						templ.KV("border-red-200 text-red-600 hover:bg-red-50", u.IsActive),
+						templ.KV("border-green-200 text-green-600 hover:bg-green-50", !u.IsActive) }>
+						if u.IsActive {
+							Deactivate
+						} else {
+							Activate
+						}
+					</button>
+				</form>
+				<form hx-post={ "/admin/users/" + u.ID.String() + "/toggle-admin" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ "/admin/users/" + u.ID.String() }>
+					@csrfInput(csrfToken)
+					<button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors">
+						if u.IsAdmin {
+							Revoke Admin
+						} else {
+							Make Admin
+						}
+					</button>
+				</form>
+			</div>
+		</div>
+
+		<!-- Mailboxes -->
+		<div x-data="{ open: false, mode: 'new' }" class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+			<div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest">Mailboxes</h2>
+				<button
+					type="button"
+					@click="open = !open"
+					class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors"
+					x-text="open ? 'Cancel' : 'Add Mailbox'"
+				></button>
+			</div>
+			<div x-show="open" x-cloak class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 space-y-3">
+				<div class="flex gap-2">
+					<button type="button" @click="mode = 'new'" :class="mode === 'new' ? 'bg-purple-100 text-purple-800' : 'bg-white text-gray-500 border border-gray-200'" class="px-3 py-1 text-xs font-semibold rounded-lg transition-colors">New mailbox</button>
+					<button type="button" @click="mode = 'existing'" :class="mode === 'existing' ? 'bg-purple-100 text-purple-800' : 'bg-white text-gray-500 border border-gray-200'" class="px-3 py-1 text-xs font-semibold rounded-lg transition-colors">Existing mailbox</button>
+				</div>
+				<div x-show="mode === 'new'">
+					<form hx-post={ "/admin/users/" + u.ID.String() + "/mailboxes" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ "/admin/users/" + u.ID.String() } class="flex gap-3">
+						@csrfInput(csrfToken)
+						<input
+							type="text"
+							name="name"
+							placeholder="Mailbox name"
+							required
+							class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+						/>
+						<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">Create</button>
+					</form>
+				</div>
+				<div x-show="mode === 'existing'">
+					<form hx-post={ "/admin/users/" + u.ID.String() + "/mailboxes" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ "/admin/users/" + u.ID.String() } class="flex gap-3">
+						@csrfInput(csrfToken)
+						<select name="mailbox_id" required class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+							<option value="">Select mailbox...</option>
+							for _, mb := range allMailboxes {
+								<option value={ mb.ID.String() }>{ mb.Name }</option>
+							}
+						</select>
+						<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">Add</button>
+					</form>
+				</div>
+			</div>
+			@adminUserMailboxTable(mailboxes, u.ID.String())
+		</div>
+
+		<!-- Sending Addresses -->
+		<div x-data="{ open: false }" class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+			<div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest">Sending Addresses</h2>
+				<button
+					type="button"
+					@click="open = !open"
+					class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors"
+					x-text="open ? 'Cancel' : 'Add Address'"
+				></button>
+			</div>
+			<div x-show="open" x-cloak class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+				<form hx-post={ "/admin/users/" + u.ID.String() + "/sending-addresses" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ "/admin/users/" + u.ID.String() } class="flex gap-3 flex-wrap items-center">
+					@csrfInput(csrfToken)
+					<select name="mailbox_id" required class="w-44 shrink-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+						<option value="">Select mailbox...</option>
+						for _, mb := range mailboxes {
+							<option value={ mb.ID.String() }>{ mb.Name }</option>
+						}
+					</select>
+					@localDomainInput("local", "domain", "username", domains)
+					<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+						Add
+					</button>
+				</form>
+			</div>
+			@adminUserSendingAddressTable(sendingAddrs, allMailboxes, u.ID.String(), csrfToken)
+		</div>
+	</div>
+}
+
+// --- Mailboxes ---
+
+templ AdminMailboxList(mailboxes []models.Mailbox, csrfToken string) {
+	<div class="p-8 w-full max-w-4xl mx-auto">
+		<div x-data="{ open: false }">
+			<div class="flex items-center justify-between mb-6">
+				<h1 class="text-2xl font-bold text-gray-900">Mailboxes</h1>
+				<button
+					type="button"
+					@click="open = !open"
+					class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+					x-text="open ? 'Cancel' : 'Add Mailbox'"
+				></button>
+			</div>
+			<div x-show="open" x-cloak class="mb-6 bg-white rounded-xl border border-purple-100 shadow-sm p-6">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4">New Mailbox</h2>
+				<form hx-post="/admin/mailboxes" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" class="flex gap-3">
+					@csrfInput(csrfToken)
+					<input
+						type="text"
+						name="username"
+						placeholder="Assign to username"
+						required
+						class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+					/>
+					<input
+						type="text"
+						name="name"
+						placeholder="Mailbox name"
+						required
+						class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+					/>
+					<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+						Create
+					</button>
+				</form>
+			</div>
+			<div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+				@adminMailboxListTable(mailboxes)
+			</div>
+		</div>
+	</div>
+}
+
+templ AdminMailboxDetail(mb models.Mailbox, users []models.User, allUsers []models.User, mappings []models.AddressMapping, sendingAddrs []models.SendingAddressWithUser, domains []string, from string, csrfToken string) {
+	{{ memberIDs := map[string]bool{}
+	for _, u := range users {
+		memberIDs[u.ID.String()] = true
+	} }}
+	<div class="p-8 w-full max-w-4xl mx-auto space-y-8">
+		<div class="flex items-center gap-3">
+			@adminBackLink(from)
+			<h1 class="text-2xl font-bold text-gray-900">{ mb.Name }</h1>
+		</div>
+
+		<!-- Users -->
+		<div class="bg-white rounded-xl border border-purple-100 shadow-sm">
+			<div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest">Users</h2>
+			</div>
+			if len(users) == 0 {
+				<div class="px-6 py-8 text-center text-sm text-gray-400">No users assigned.</div>
+			} else {
+				<div class="divide-y divide-gray-50">
+					for _, u := range users {
+						<div class="px-6 py-3 flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<a
+									href={ templ.URL("/admin/users/" + u.ID.String()) }
+									hx-get={ "/admin/users/" + u.ID.String() }
+									hx-target="#main-content"
+									hx-push-url="true"
+									hx-swap="innerHTML"
+									class="text-sm font-medium text-purple-700 hover:text-purple-900 transition-colors"
+								>{ u.Username }</a>
+								@statusBadge(u.IsActive)
+							</div>
+							<form hx-delete={ "/admin/mailboxes/" + mb.ID.String() + "/users/" + u.ID.String() } hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+								@csrfInput(csrfToken)
+								<button type="submit" class="text-xs font-medium text-red-400 hover:text-red-600 transition-colors" onclick="return confirm('Remove this user from the mailbox?')">Remove</button>
+							</form>
+						</div>
+					}
+				</div>
+			}
+			<div class="px-6 py-4 border-t border-gray-100">
+				<form hx-post={ "/admin/mailboxes/" + mb.ID.String() + "/add-user" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" class="flex gap-3">
+					@csrfInput(csrfToken)
+					<select name="user_id" required class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+						<option value="">Select user to add...</option>
+						for _, u := range allUsers {
+							if !memberIDs[u.ID.String()] {
+								<option value={ u.ID.String() }>{ u.Username }</option>
+							}
+						}
+					</select>
+					<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+						Add User
+					</button>
+				</form>
+			</div>
+		</div>
+
+		<!-- Address Mappings -->
+		<div class="bg-white rounded-xl border border-purple-100 shadow-sm">
+			<div class="px-6 py-4 border-b border-gray-100">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest">Address Mappings</h2>
+				<p class="text-xs text-gray-400 mt-1">Regex patterns that route incoming email to this mailbox</p>
+			</div>
+			<div class="divide-y divide-gray-50">
+				for _, m := range mappings {
+					<div class="px-6 py-3 flex items-center justify-between">
+						<div>
+							<code class="text-sm font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded">{ m.AddressPattern }</code>
+							<span class="ml-2 text-xs text-gray-400">priority { fmt.Sprintf("%d", m.Priority) }</span>
+						</div>
+						if !m.IsActive {
+							<span class="text-xs text-gray-400">inactive</span>
+						}
+					</div>
+				}
+			</div>
+			<div class="px-6 py-4 border-t border-gray-100">
+				<form hx-post={ "/admin/mailboxes/" + mb.ID.String() + "/add-mapping" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" class="flex gap-3 flex-wrap items-center">
+					@csrfInput(csrfToken)
+					@localDomainInput("local", "domain", "username", domains)
+					<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+						Add
+					</button>
+				</form>
+			</div>
+		</div>
+
+		<!-- Sending Addresses -->
+		<div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+			<div class="px-6 py-4 border-b border-gray-100">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest">Sending Addresses</h2>
+			</div>
+			@sendingAddressTable(sendingAddrs, false, "/admin/mailboxes/"+mb.ID.String(), csrfToken)
+		</div>
+	</div>
+}
+
+// --- Sending Addresses ---
+
+templ AdminSendingAddressList(addrs []models.SendingAddressWithUser, users []models.User, mailboxes []models.Mailbox, csrfToken string) {
+	<div class="p-8 w-full max-w-4xl mx-auto">
+		<div x-data="{ open: false }">
+			<div class="flex items-center justify-between mb-6">
+				<h1 class="text-2xl font-bold text-gray-900">Sending Addresses</h1>
+				<button
+					type="button"
+					@click="open = !open"
+					class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+					x-text="open ? 'Cancel' : 'Add Sending Address'"
+				></button>
+			</div>
+			<div x-show="open" x-cloak class="mb-6 bg-white rounded-xl border border-purple-100 shadow-sm p-6">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4">New Sending Address</h2>
+				<form hx-post="/admin/sending-addresses" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true" class="space-y-3">
+					@csrfInput(csrfToken)
+					<div class="flex gap-3 flex-wrap">
+						<select name="user_id" required class="flex-1 min-w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+							<option value="">Select user...</option>
+							for _, u := range users {
+								<option value={ u.ID.String() }>{ u.Username }</option>
+							}
+						</select>
+						<select name="mailbox_id" required class="flex-1 min-w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+							<option value="">Select mailbox...</option>
+							for _, mb := range mailboxes {
+								<option value={ mb.ID.String() }>{ mb.Name }</option>
+							}
+						</select>
+						<input
+							type="email"
+							name="address"
+							placeholder="email@example.com"
+							required
+							class="flex-1 min-w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+						/>
+						<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+							Add
+						</button>
+					</div>
+				</form>
+			</div>
+			<div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+				@sendingAddressTable(addrs, true, "/admin/sending-addresses", csrfToken)
+			</div>
+		</div>
+	</div>
+}
+
+// --- Domains / DKIM ---
+
+templ AdminDomainList(keys []models.DKIMKey, csrfToken string) {
+	<div class="p-8 w-full max-w-4xl mx-auto">
+		<div class="flex items-center justify-between mb-6">
+			<h1 class="text-2xl font-bold text-gray-900">Domains</h1>
+		</div>
+		<div id="domain-setup-area" class="mb-6">
+			<div class="bg-white rounded-xl border border-purple-100 shadow-sm p-6">
+				<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-1">Set Up a Domain</h2>
+				<p class="text-xs text-gray-400 mb-4">Generate a DKIM key and get the DNS records to add to your domain.</p>
+				<form hx-post="/admin/domains" hx-target="#domain-setup-area" hx-swap="innerHTML" class="flex gap-3">
+					@csrfInput(csrfToken)
+					<input
+						type="text"
+						name="domain"
+						placeholder="example.com"
+						required
+						class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+					/>
+					<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+						Generate Key
+					</button>
+				</form>
+			</div>
+		</div>
+		if len(keys) > 0 {
+			<div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden">
+				@adminDomainTable(keys, csrfToken)
+			</div>
+		}
+	</div>
+}
+
+templ AdminDomainDNS(domain string, selector string, mxRecord string, spfRecord string, dkimRecord string, csrfToken string, results *[3]DNSCheckResult) {
+	<div class="p-8 w-full max-w-4xl mx-auto space-y-6">
+		<div class="flex items-center gap-3">
+			@adminBackLink("/admin/domains")
+			<h1 class="text-2xl font-bold text-gray-900">DNS Setup for <span class="text-purple-700">{ domain }</span></h1>
+		</div>
+		<p class="text-sm text-gray-500">Add these three DNS records to your domain registrar to enable email delivery.</p>
+		<div class="space-y-4">
+			{{ var mxResult, spfResult, dkimResult *DNSCheckResult
+			if results != nil {
+				mxResult = &results[0]
+				spfResult = &results[1]
+				dkimResult = &results[2]
+			} }}
+			@dnsRecord("MX Record", domain+".", "MX", "10 "+mxRecord, "Routes incoming email to your mail server.", mxResult)
+			@dnsRecord("SPF Record", domain+".", "TXT", spfRecord, "Authorizes your mail server to send email for this domain.", spfResult)
+			@dnsRecord("DKIM Record", selector+"._domainkey."+domain+".", "TXT", dkimRecord, "Cryptographic signature key for outbound email authentication.", dkimResult)
+		</div>
+		<div class="flex justify-end">
+			<form hx-post={ "/admin/domains/" + domain + "/verify" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url="false">
+				@csrfInput(csrfToken)
+				<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">
+					Check DNS
+				</button>
+			</form>
+		</div>
+	</div>
+}
+
+templ dnsRecord(label string, name string, recordType string, value string, description string, result *DNSCheckResult) {
+	<div class={ "rounded-xl border shadow-sm p-6",
+		templ.KV("bg-green-50 border-green-200", result != nil && result.Passed),
+		templ.KV("bg-red-50 border-red-200", result != nil && !result.Passed),
+		templ.KV("bg-white border-purple-100", result == nil) }>
+		<div class="flex items-start justify-between mb-3">
+			<div>
+				<h3 class="text-sm font-bold text-gray-900">{ label }</h3>
+				<p class="text-xs text-gray-400 mt-0.5">{ description }</p>
+			</div>
+			<div class="flex items-center gap-2">
+				if result != nil {
+					if result.Passed {
+						<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+							Verified
+						</span>
+					} else {
+						<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+							Not found
+						</span>
+					}
+				}
+				<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600">{ recordType }</span>
+			</div>
+		</div>
+		<div class="space-y-2">
+			<div>
+				<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Name</p>
+				<code class="block bg-white/60 border border-gray-200 rounded-lg px-4 py-2 text-sm font-mono text-gray-700 break-all">{ name }</code>
+			</div>
+			<div>
+				<p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Value</p>
+				<code class="block bg-white/60 border border-gray-200 rounded-lg px-4 py-2 text-sm font-mono text-gray-700 break-all">{ value }</code>
+			</div>
+			if result != nil && !result.Passed && result.Found != "" {
+				<p class="text-xs text-red-600 mt-1 font-mono">Found instead: { result.Found }</p>
+			}
+		</div>
+	</div>
+}

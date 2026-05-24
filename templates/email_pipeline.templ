@@ -38,12 +38,13 @@ templ EmailPipeline(email *models.Email, steps []models.IngestionStep) {
 							for _, step := range steps {
 								<div class="relative pl-12">
 									<!-- Timeline dot -->
-									<div class={ "absolute left-0 w-8 h-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center", 
+									<div class={ "absolute left-0 w-8 h-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center",
 										templ.KV("bg-green-500", step.Status == "pass"),
 										templ.KV("bg-red-500", step.Status == "fail"),
+										templ.KV("bg-orange-500", step.Status == "quarantined"),
 										templ.KV("bg-yellow-500", step.Status == "error"),
-										templ.KV("bg-gray-400", step.Status != "pass" && step.Status != "fail" && step.Status != "error") }>
-										
+										templ.KV("bg-gray-400", step.Status != "pass" && step.Status != "fail" && step.Status != "quarantined" && step.Status != "error") }>
+
 										if step.Status == "pass" {
 											<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
@@ -51,6 +52,10 @@ templ EmailPipeline(email *models.Email, steps []models.IngestionStep) {
 										} else if step.Status == "fail" {
 											<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										} else if step.Status == "quarantined" {
+											<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
 											</svg>
 										} else {
 											<span class="text-white text-xs font-bold">!</span>
@@ -64,8 +69,9 @@ templ EmailPipeline(email *models.Email, steps []models.IngestionStep) {
 												<span class={ "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
 													templ.KV("bg-green-100 text-green-700", step.Status == "pass"),
 													templ.KV("bg-red-100 text-red-700", step.Status == "fail"),
+													templ.KV("bg-orange-100 text-orange-700", step.Status == "quarantined"),
 													templ.KV("bg-yellow-100 text-yellow-700", step.Status == "error"),
-													templ.KV("bg-gray-100 text-gray-700", step.Status != "pass" && step.Status != "fail" && step.Status != "error") }>
+													templ.KV("bg-gray-100 text-gray-700", step.Status != "pass" && step.Status != "fail" && step.Status != "quarantined" && step.Status != "error") }>
 													{ step.Status }
 												</span>
 												<span class="text-xs text-gray-400 font-mono">{ fmt.Sprintf("%dms", step.DurationMS) }</span>

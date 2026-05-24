@@ -19,12 +19,13 @@ import (
 type StepStatus string
 
 const (
-	StatusPass    StepStatus = "pass"
-	StatusFail    StepStatus = "fail"
-	StatusNeutral StepStatus = "neutral"
-	StatusError   StepStatus = "error"
-	StatusSkipped StepStatus = "skipped"
-	StatusNone    StepStatus = "none"
+	StatusPass        StepStatus = "pass"
+	StatusFail        StepStatus = "fail"
+	StatusNeutral     StepStatus = "neutral"
+	StatusQuarantined StepStatus = "quarantined"
+	StatusError       StepStatus = "error"
+	StatusSkipped     StepStatus = "skipped"
+	StatusNone        StepStatus = "none"
 )
 
 type Event struct {

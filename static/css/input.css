@@ -9,6 +9,10 @@
   text-decoration: underline;
 }
 
+button {
+  cursor: pointer;
+}
+
 @utility scrollbar-hide {
   scrollbar-width: none;
   -ms-overflow-style: none;

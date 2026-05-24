@@ -8,6 +8,7 @@ import (
 
 	"github.com/colormechadd/mailaroo/pkg/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // EmailFilter specifies criteria for SearchEmails. Zero values mean no constraint for that field.
@@ -83,6 +84,14 @@ type WebDB interface {
 	UpdateFilterRule(ctx context.Context, rule *models.FilterRule) error
 	DeleteFilterRule(ctx context.Context, ruleID, mailboxID uuid.UUID) error
 	ReorderFilterRules(ctx context.Context, mailboxID uuid.UUID, orderedIDs []uuid.UUID) error
+
+	CreateTOTPPending(ctx context.Context, userID uuid.UUID, token string, expires time.Time) error
+	GetTOTPPendingByToken(ctx context.Context, token string) (*models.TOTPPending, error)
+	DeleteTOTPPending(ctx context.Context, token string) error
+	SaveTOTPSetup(ctx context.Context, userID uuid.UUID, secret string, hashedCodes []string) error
+	DisableTOTP(ctx context.Context, userID uuid.UUID) error
+	RemoveTOTPBackupCode(ctx context.Context, userID uuid.UUID, index int) error
+	RegenerateTOTPBackupCodes(ctx context.Context, userID uuid.UUID, hashedCodes []string) error
 }
 
 func (db *DB) CreateWebmailSession(ctx context.Context, userID uuid.UUID, token string, remoteIP, userAgent string, expires time.Time) error {
@@ -106,7 +115,7 @@ func (db *DB) ExpireWebmailSession(ctx context.Context, token string) error {
 
 func (db *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active FROM "user" WHERE id = $1`, id)
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE id = $1`, id)
 	return &user, err
 }
 
@@ -382,7 +391,7 @@ func (db *DB) UpdateSendingAddressDisplayName(ctx context.Context, id, userID uu
 func (db *DB) GetMailboxUsers(ctx context.Context, mailboxID uuid.UUID) ([]models.User, error) {
 	var users []models.User
 	err := db.SelectContext(ctx, &users, `
-		SELECT u.id, u.username, u.password_hash, u.is_active
+		SELECT u.id, u.username, u.password_hash, u.is_active, u.is_admin
 		FROM "user" u
 		JOIN mailbox_user mu ON mu.user_id = u.id
 		WHERE mu.mailbox_id = $1 AND mu.is_active = TRUE
@@ -400,5 +409,65 @@ func (db *DB) GetSendingAddressesByMailboxID(ctx context.Context, mailboxID uuid
 		ORDER BY address ASC
 	`, mailboxID)
 	return addresses, err
+}
+
+func (db *DB) CreateTOTPPending(ctx context.Context, userID uuid.UUID, token string, expires time.Time) error {
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO totp_pending (user_id, token, expires_datetime)
+		VALUES ($1, $2, $3)
+	`, userID, token, expires)
+	return err
+}
+
+func (db *DB) GetTOTPPendingByToken(ctx context.Context, token string) (*models.TOTPPending, error) {
+	var p models.TOTPPending
+	err := db.GetContext(ctx, &p, `
+		SELECT id, user_id, token, expires_datetime
+		FROM totp_pending
+		WHERE token = $1 AND expires_datetime > CURRENT_TIMESTAMP
+	`, token)
+	return &p, err
+}
+
+func (db *DB) DeleteTOTPPending(ctx context.Context, token string) error {
+	_, err := db.ExecContext(ctx, `DELETE FROM totp_pending WHERE token = $1`, token)
+	return err
+}
+
+func (db *DB) SaveTOTPSetup(ctx context.Context, userID uuid.UUID, secret string, hashedCodes []string) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE "user"
+		SET totp_enabled = true, totp_secret = $2, totp_backup_codes = $3
+		WHERE id = $1
+	`, userID, secret, pq.StringArray(hashedCodes))
+	return err
+}
+
+func (db *DB) DisableTOTP(ctx context.Context, userID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE "user"
+		SET totp_enabled = false, totp_secret = NULL, totp_backup_codes = '{}'
+		WHERE id = $1
+	`, userID)
+	return err
+}
+
+func (db *DB) RemoveTOTPBackupCode(ctx context.Context, userID uuid.UUID, index int) error {
+	var codes pq.StringArray
+	if err := db.GetContext(ctx, &codes, `SELECT totp_backup_codes FROM "user" WHERE id = $1`, userID); err != nil {
+		return err
+	}
+	if index >= 0 && index < len(codes) {
+		codes = append(codes[:index], codes[index+1:]...)
+	}
+	_, err := db.ExecContext(ctx, `UPDATE "user" SET totp_backup_codes = $2 WHERE id = $1`, userID, codes)
+	return err
+}
+
+func (db *DB) RegenerateTOTPBackupCodes(ctx context.Context, userID uuid.UUID, hashedCodes []string) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE "user" SET totp_backup_codes = $2 WHERE id = $1
+	`, userID, pq.StringArray(hashedCodes))
+	return err
 }
 

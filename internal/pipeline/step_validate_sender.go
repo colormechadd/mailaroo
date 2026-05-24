@@ -51,7 +51,7 @@ func ValidateSender(ctx context.Context, p *Pipeline, ictx *IngestionContext) (S
 
 		if dmarcRecord.Policy == dmarc.PolicyReject || dmarcRecord.Policy == dmarc.PolicyQuarantine {
 			ictx.FilterAction = models.FilterActionQuarantine
-			return StatusNeutral, results, nil
+			return StatusQuarantined, results, nil
 		}
 	} else {
 		results["dmarc"] = map[string]any{
@@ -61,7 +61,7 @@ func ValidateSender(ctx context.Context, p *Pipeline, ictx *IngestionContext) (S
 	}
 
 	ictx.FilterAction = models.FilterActionQuarantine
-	return StatusNeutral, results, nil
+	return StatusQuarantined, results, nil
 }
 
 func checkDKIM(raw []byte) (StepStatus, []any, error) {

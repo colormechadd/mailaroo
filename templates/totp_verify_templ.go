@@ -8,7 +8,7 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func LoginPage(err string, csrfToken string) templ.Component {
+func TOTPVerifyPage(err string, csrfToken string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -41,14 +41,14 @@ func LoginPage(err string, csrfToken string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 to-teal-50\"><div class=\"max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-purple-100\"><div><img class=\"mx-auto h-24 w-auto\" src=\"/static/img/mailaroo.png\" alt=\"MAILAROO Logo\"><h2 class=\"mt-6 text-center text-4xl font-extrabold text-purple-900 tracking-tight\">MAILAROO</h2><p class=\"mt-2 text-center text-sm text-teal-700 font-medium\">Sign in to your account</p></div><form class=\"mt-8 space-y-6\" action=\"/login\" method=\"POST\"><input type=\"hidden\" name=\"gorilla.csrf.Token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 to-teal-50\"><div class=\"max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-purple-100\"><div><img class=\"mx-auto h-24 w-auto\" src=\"/static/img/mailaroo.png\" alt=\"MAILAROO Logo\"><h2 class=\"mt-6 text-center text-3xl font-extrabold text-purple-900 tracking-tight\">Two-Factor Authentication</h2><p class=\"mt-2 text-center text-sm text-gray-600\">Enter the 6-digit code from your authenticator app, or a backup code.</p></div><form class=\"mt-8 space-y-6\" action=\"/verify-totp\" method=\"POST\"><input type=\"hidden\" name=\"gorilla.csrf.Token\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/login.templ`, Line: 17, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/totp_verify.templ`, Line: 17, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -66,7 +66,7 @@ func LoginPage(err string, csrfToken string) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(err)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/login.templ`, Line: 28, Col: 15}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/totp_verify.templ`, Line: 27, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -77,13 +77,13 @@ func LoginPage(err string, csrfToken string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"rounded-md shadow-sm -space-y-px\"><div><label for=\"username\" class=\"sr-only\">Username</label> <input id=\"username\" name=\"username\" type=\"text\" required class=\"appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-t-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm transition-all\" placeholder=\"Username\"></div><div><label for=\"password\" class=\"sr-only\">Password</label> <input id=\"password\" name=\"password\" type=\"password\" required class=\"appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm transition-all\" placeholder=\"Password\"></div></div><div><button type=\"submit\" class=\"group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer\">Sign in</button></div></form></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div><label for=\"code\" class=\"block text-sm font-medium text-gray-700 mb-1\">Authentication Code</label> <input id=\"code\" name=\"code\" type=\"text\" autocomplete=\"one-time-code\" inputmode=\"numeric\" required autofocus class=\"appearance-none block w-full px-3 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all text-center tracking-widest text-lg font-mono\" placeholder=\"000000\"></div><div><button type=\"submit\" class=\"group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer\">Verify</button></div><div class=\"text-center\"><a href=\"/login\" class=\"text-sm text-purple-600 hover:text-purple-800\">Cancel and return to login</a></div></form></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Login", csrfToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Two-Factor Authentication", csrfToken).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

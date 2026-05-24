@@ -85,6 +85,22 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Server) AdminMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*models.User)
+		if !user.IsAdmin {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/")
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) validateUserAccessToEmailID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*models.User)
