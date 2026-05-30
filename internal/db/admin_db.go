@@ -18,15 +18,26 @@ type AdminDB interface {
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 
 	AddUserToMailbox(ctx context.Context, mailboxID, userID uuid.UUID) error
+	RemoveUserFromMailbox(ctx context.Context, mailboxID, userID uuid.UUID) error
 
 	AddSendingAddress(ctx context.Context, sa *models.SendingAddress) error
 	ListSendingAddresses(ctx context.Context, userID uuid.UUID) ([]models.SendingAddress, error)
 	DeactivateSendingAddress(ctx context.Context, saID uuid.UUID) error
+	ReactivateSendingAddress(ctx context.Context, saID uuid.UUID) error
+	ListSendingAddressesByMailboxID(ctx context.Context, mailboxID uuid.UUID) ([]models.SendingAddressWithUser, error)
+	CreateUserNoMailbox(ctx context.Context, user *models.User) error
 
 	InsertDKIMKey(ctx context.Context, key *models.DKIMKey) error
 	GetActiveDKIMKey(ctx context.Context, domain string, selector *string) (*models.DKIMKey, error)
 	ListDKIMKeys(ctx context.Context) ([]models.DKIMKey, error)
 	UpdateDKIMKeyData(ctx context.Context, id uuid.UUID, keyData []byte) error
+
+	ToggleUserAdmin(ctx context.Context, userID uuid.UUID) error
+	ToggleUserActive(ctx context.Context, userID uuid.UUID) error
+	ListAllMailboxes(ctx context.Context) ([]models.Mailbox, error)
+	ListAllSendingAddresses(ctx context.Context) ([]models.SendingAddressWithUser, error)
+	GetAddressMappingsByMailboxID(ctx context.Context, mailboxID uuid.UUID) ([]models.AddressMapping, error)
+	GetMailboxByID(ctx context.Context, mailboxID uuid.UUID) (*models.Mailbox, error)
 }
 
 func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
@@ -36,7 +47,7 @@ func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, is_active) VALUES ($1, $2, $3, $4)`, user.ID, user.Username, user.PasswordHash, user.IsActive)
+	_, err = tx.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, is_active, is_admin) VALUES ($1, $2, $3, $4, $5)`, user.ID, user.Username, user.PasswordHash, user.IsActive, user.IsAdmin)
 	if err != nil {
 		return err
 	}
@@ -83,7 +94,7 @@ func (db *DB) CreateAddressMapping(ctx context.Context, am *models.AddressMappin
 
 func (db *DB) ListUsers(ctx context.Context) ([]models.User, error) {
 	var users []models.User
-	err := db.SelectContext(ctx, &users, `SELECT id, username, password_hash, is_active FROM "user" ORDER BY username ASC`)
+	err := db.SelectContext(ctx, &users, `SELECT id, username, password_hash, is_active, is_admin FROM "user" ORDER BY username ASC`)
 	return users, err
 }
 
@@ -117,6 +128,11 @@ func (db *DB) AddUserToMailbox(ctx context.Context, mailboxID, userID uuid.UUID)
 	return err
 }
 
+func (db *DB) RemoveUserFromMailbox(ctx context.Context, mailboxID, userID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, `DELETE FROM mailbox_user WHERE mailbox_id = $1 AND user_id = $2`, mailboxID, userID)
+	return err
+}
+
 func (db *DB) AddSendingAddress(ctx context.Context, sa *models.SendingAddress) error {
 	_, err := db.ExecContext(ctx, "INSERT INTO sending_address (id, user_id, mailbox_id, address, display_name, is_active) VALUES ($1, $2, $3, $4, $5, $6)", sa.ID, sa.UserID, sa.MailboxID, sa.Address, sa.DisplayName, sa.IsActive)
 	return err
@@ -133,9 +149,32 @@ func (db *DB) DeactivateSendingAddress(ctx context.Context, saID uuid.UUID) erro
 	return err
 }
 
+func (db *DB) ReactivateSendingAddress(ctx context.Context, saID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, "UPDATE sending_address SET is_active = TRUE WHERE id = $1", saID)
+	return err
+}
+
+func (db *DB) CreateUserNoMailbox(ctx context.Context, user *models.User) error {
+	_, err := db.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, is_active, is_admin) VALUES ($1, $2, $3, $4, $5)`, user.ID, user.Username, user.PasswordHash, user.IsActive, user.IsAdmin)
+	return err
+}
+
+func (db *DB) ListSendingAddressesByMailboxID(ctx context.Context, mailboxID uuid.UUID) ([]models.SendingAddressWithUser, error) {
+	var addresses []models.SendingAddressWithUser
+	err := db.SelectContext(ctx, &addresses, `
+		SELECT sa.id, sa.user_id, sa.mailbox_id, sa.address, sa.display_name, sa.is_active, u.username, m.name AS mailbox_name
+		FROM sending_address sa
+		JOIN "user" u ON sa.user_id = u.id
+		JOIN mailbox m ON sa.mailbox_id = m.id
+		WHERE sa.mailbox_id = $1
+		ORDER BY sa.address ASC
+	`, mailboxID)
+	return addresses, err
+}
+
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active FROM "user" WHERE username = $1`, username)
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE username = $1`, username)
 	return &user, err
 }
 
@@ -182,3 +221,50 @@ func (db *DB) UpdateDKIMKeyData(ctx context.Context, id uuid.UUID, keyData []byt
 	)
 	return err
 }
+
+func (db *DB) ToggleUserAdmin(ctx context.Context, userID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, `UPDATE "user" SET is_admin = NOT is_admin, update_datetime = NOW() WHERE id = $1`, userID)
+	return err
+}
+
+func (db *DB) ToggleUserActive(ctx context.Context, userID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, `UPDATE "user" SET is_active = NOT is_active, update_datetime = NOW() WHERE id = $1`, userID)
+	return err
+}
+
+func (db *DB) ListAllMailboxes(ctx context.Context) ([]models.Mailbox, error) {
+	var mailboxes []models.Mailbox
+	err := db.SelectContext(ctx, &mailboxes, "SELECT id, name FROM mailbox ORDER BY name ASC")
+	return mailboxes, err
+}
+
+func (db *DB) ListAllSendingAddresses(ctx context.Context) ([]models.SendingAddressWithUser, error) {
+	var addresses []models.SendingAddressWithUser
+	err := db.SelectContext(ctx, &addresses, `
+		SELECT sa.id, sa.user_id, sa.mailbox_id, sa.address, sa.display_name, sa.is_active, u.username, m.name AS mailbox_name
+		FROM sending_address sa
+		JOIN "user" u ON sa.user_id = u.id
+		JOIN mailbox m ON sa.mailbox_id = m.id
+		ORDER BY sa.address ASC
+	`)
+	return addresses, err
+}
+
+func (db *DB) GetAddressMappingsByMailboxID(ctx context.Context, mailboxID uuid.UUID) ([]models.AddressMapping, error) {
+	var mappings []models.AddressMapping
+	err := db.SelectContext(ctx, &mappings,
+		"SELECT id, address_pattern, mailbox_id, priority, is_active FROM address_mapping WHERE mailbox_id = $1 ORDER BY priority ASC",
+		mailboxID,
+	)
+	return mappings, err
+}
+
+func (db *DB) GetMailboxByID(ctx context.Context, mailboxID uuid.UUID) (*models.Mailbox, error) {
+	var mb models.Mailbox
+	err := db.GetContext(ctx, &mb, "SELECT id, name FROM mailbox WHERE id = $1", mailboxID)
+	if err != nil {
+		return nil, err
+	}
+	return &mb, nil
+}
+

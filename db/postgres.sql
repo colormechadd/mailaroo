@@ -1,7 +1,7 @@
 \restrict dbmate
 
 -- Dumped from database version 18.3
--- Dumped by pg_dump version 18.3
+-- Dumped by pg_dump version 18.4
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -403,6 +403,19 @@ CREATE TABLE public.thread (
 
 
 --
+-- Name: totp_pending; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.totp_pending (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    user_id uuid NOT NULL,
+    token text NOT NULL,
+    expires_datetime timestamp with time zone NOT NULL,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: user; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -412,7 +425,11 @@ CREATE TABLE public."user" (
     password_hash text NOT NULL,
     is_active boolean DEFAULT true,
     create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    is_admin boolean DEFAULT false NOT NULL,
+    totp_enabled boolean DEFAULT false NOT NULL,
+    totp_secret text,
+    totp_backup_codes text[] DEFAULT '{}'::text[] NOT NULL
 );
 
 
@@ -621,6 +638,22 @@ ALTER TABLE ONLY public.sending_address
 
 ALTER TABLE ONLY public.thread
     ADD CONSTRAINT thread_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: totp_pending totp_pending_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.totp_pending
+    ADD CONSTRAINT totp_pending_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: totp_pending totp_pending_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.totp_pending
+    ADD CONSTRAINT totp_pending_token_key UNIQUE (token);
 
 
 --
@@ -1095,6 +1128,14 @@ ALTER TABLE ONLY public.thread
 
 
 --
+-- Name: totp_pending totp_pending_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.totp_pending
+    ADD CONSTRAINT totp_pending_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+
+
+--
 -- Name: webmail_session webmail_session_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1116,4 +1157,6 @@ ALTER TABLE ONLY public.webmail_session
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260509000000'),
     ('20260510000000'),
-    ('20260510000001');
+    ('20260510000001'),
+    ('20260523000000'),
+    ('20260524000001');

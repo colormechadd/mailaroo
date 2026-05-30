@@ -59,6 +59,27 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.TOTPEnabled {
+		token := generateToken()
+		expires := time.Now().Add(5 * time.Minute)
+		if err := s.DB.CreateTOTPPending(r.Context(), user.ID, token, expires); err != nil {
+			slog.Error("failed to create TOTP pending session", "user_id", user.ID, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		http.SetCookie(w, &http.Cookie{
+			Name:     "mailaroo_totp_pending",
+			Value:    token,
+			Expires:  expires,
+			HttpOnly: true,
+			Secure:   s.secureCookies,
+			SameSite: http.SameSiteStrictMode,
+			Path:     "/",
+		})
+		http.Redirect(w, r, "/verify-totp", http.StatusSeeOther)
+		return
+	}
+
 	token := generateToken()
 	slog.Info("Expire seconds", "seconds", s.Config.Web.SessionExpirationSeconds)
 	expires := time.Now().Add(time.Duration(s.Config.Web.SessionExpirationSeconds) * time.Second)

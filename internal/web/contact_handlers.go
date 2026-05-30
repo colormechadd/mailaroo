@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"regexp"
 	"strings"
 
 	"github.com/colormechadd/mailaroo/internal/db"
@@ -15,12 +16,21 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Server) contactBlocked(ctx context.Context, mailboxID uuid.UUID, c *models.Contact) bool {
+func (s *Server) contactBlockRule(ctx context.Context, mailboxID uuid.UUID, c *models.Contact) *models.MailboxBlockRule {
 	if c == nil {
-		return false
+		return nil
 	}
 	rule, _ := s.DB.IsBlockedByMailboxRules(ctx, mailboxID, c.Email)
-	return rule != nil
+	return rule
+}
+
+func mailboxName(mailboxes []models.Mailbox, mailboxID uuid.UUID) string {
+	for _, mb := range mailboxes {
+		if mb.ID == mailboxID {
+			return mb.Name
+		}
+	}
+	return ""
 }
 
 func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +70,8 @@ func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	showNew := r.URL.Query().Get("new") == "1"
-	s.render(w, r, user, mailboxes, mailboxID, "contacts", nil, templates.ContactsPage(mailboxID, contacts, selected, recentEmails, showNew, s.contactBlocked(r.Context(), mailboxID, selected)), "Contacts")
+	counts := s.getCounts(r.Context(), mailboxID, user.ID)
+	s.render(w, r, user, mailboxes, mailboxID, "contacts", counts, templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, selected, recentEmails, showNew, s.contactBlockRule(r.Context(), mailboxID, selected)), "Contacts")
 }
 
 func (s *Server) handleContactView(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +112,8 @@ func (s *Server) handleContactView(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to fetch recent emails for contact", "contact_id", contactID, "error", err)
 	}
 
-	s.render(w, r, user, mailboxes, mailboxID, "contacts", nil, templates.ContactsPage(mailboxID, contacts, selected, recentEmails, false, s.contactBlocked(r.Context(), mailboxID, selected)), "Contacts")
+	counts := s.getCounts(r.Context(), mailboxID, user.ID)
+	s.render(w, r, user, mailboxes, mailboxID, "contacts", counts, templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, selected, recentEmails, false, s.contactBlockRule(r.Context(), mailboxID, selected)), "Contacts")
 }
 
 func (s *Server) handleContactSearch(w http.ResponseWriter, r *http.Request) {
@@ -189,8 +201,9 @@ func (s *Server) handleContactCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contacts, _ := s.DB.ListContacts(r.Context(), mailboxID)
-	recentEmails, _ := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant:created.Email}, 3, nil, nil)
-	templates.ContactsPage(mailboxID, contacts, created, recentEmails, false, s.contactBlocked(r.Context(), mailboxID, created)).Render(r.Context(), w)
+	recentEmails, _ := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant: created.Email}, 3, nil, nil)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
+	templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, created, recentEmails, false, s.contactBlockRule(r.Context(), mailboxID, created)).Render(r.Context(), w)
 }
 
 func (s *Server) handleContactUpdate(w http.ResponseWriter, r *http.Request) {
@@ -243,9 +256,10 @@ func (s *Server) handleContactUpdate(w http.ResponseWriter, r *http.Request) {
 	contacts, _ := s.DB.ListContacts(r.Context(), mailboxID)
 	var recentEmails []models.Email
 	if updated != nil {
-		recentEmails, _ = s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant:updated.Email}, 3, nil, nil)
+		recentEmails, _ = s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant: updated.Email}, 3, nil, nil)
 	}
-	templates.ContactsPage(mailboxID, contacts, updated, recentEmails, false, s.contactBlocked(r.Context(), mailboxID, updated)).Render(r.Context(), w)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
+	templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, updated, recentEmails, false, s.contactBlockRule(r.Context(), mailboxID, updated)).Render(r.Context(), w)
 }
 
 func (s *Server) handleContactDelete(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +283,8 @@ func (s *Server) handleContactDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contacts, _ := s.DB.ListContacts(r.Context(), mailboxID)
-	templates.ContactsPage(mailboxID, contacts, nil, nil, false, false).Render(r.Context(), w)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
+	templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, nil, nil, false, nil).Render(r.Context(), w)
 }
 
 func (s *Server) handleContactToggleFavorite(w http.ResponseWriter, r *http.Request) {
@@ -296,9 +311,53 @@ func (s *Server) handleContactToggleFavorite(w http.ResponseWriter, r *http.Requ
 	contacts, _ := s.DB.ListContacts(r.Context(), mailboxID)
 	var recentEmails []models.Email
 	if updated != nil {
-		recentEmails, _ = s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant:updated.Email}, 3, nil, nil)
+		recentEmails, _ = s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant: updated.Email}, 3, nil, nil)
 	}
-	templates.ContactsPage(mailboxID, contacts, updated, recentEmails, false, s.contactBlocked(r.Context(), mailboxID, updated)).Render(r.Context(), w)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
+	templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, updated, recentEmails, false, s.contactBlockRule(r.Context(), mailboxID, updated)).Render(r.Context(), w)
+}
+
+func (s *Server) handleContactToggleBlock(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	mailboxID, _, err := s.getMailboxForUser(r, chi.URLParam(r, "mailboxID"), user.ID)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	contactID, err := uuid.Parse(chi.URLParam(r, "contactID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	contact, err := s.DB.GetContactByID(r.Context(), contactID, mailboxID)
+	if err != nil || contact == nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	rule, _ := s.DB.IsBlockedByMailboxRules(r.Context(), mailboxID, contact.Email)
+	if rule != nil {
+		if err := s.DB.DeleteBlockRule(r.Context(), rule.ID, mailboxID); err != nil {
+			slog.Error("failed to delete block rule", "error", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		pattern := regexp.QuoteMeta(contact.Email)
+		if err := s.DB.CreateBlockRule(r.Context(), mailboxID, user.ID, pattern); err != nil {
+			slog.Error("failed to create block rule", "error", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	contacts, _ := s.DB.ListContacts(r.Context(), mailboxID)
+	recentEmails, _ := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant: contact.Email}, 3, nil, nil)
+	mailboxes, _ := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
+	newRule, _ := s.DB.IsBlockedByMailboxRules(r.Context(), mailboxID, contact.Email)
+	templates.ContactsPage(mailboxID, mailboxName(mailboxes, mailboxID), contacts, contact, recentEmails, false, newRule).Render(r.Context(), w)
 }
 
 func (s *Server) handleAddContactFromEmail(w http.ResponseWriter, r *http.Request) {

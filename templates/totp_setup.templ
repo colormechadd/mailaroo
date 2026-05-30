@@ -1,0 +1,168 @@
+package templates
+
+// TOTPSetupFragment renders the QR code + secret + verification form (HTMX fragment).
+// CSRF token is sent via X-CSRF-Token header by the existing HTMX script.
+templ TOTPSetupFragment(secret string, qrDataURL string) {
+	<div id="totp-setup" class="mt-4 space-y-4 border-t border-gray-100 pt-4">
+		<p class="text-sm text-gray-600">
+			Scan the QR code with your authenticator app (e.g. Google Authenticator, Authy), then enter the 6-digit code to confirm.
+		</p>
+		<div class="flex flex-col items-center gap-4">
+			<img src={ qrDataURL } alt="TOTP QR Code" class="border border-gray-200 rounded-lg shadow-sm"/>
+			<div class="text-center">
+				<p class="text-xs text-gray-500 mb-1">Or enter the secret manually:</p>
+				<div class="inline-flex items-center gap-2" x-data="{ copied: false }">
+					<code class="text-sm font-mono bg-gray-100 px-3 py-1 rounded select-all">{ secret }</code>
+					<button
+						type="button"
+						@click="navigator.clipboard.writeText($el.closest('[x-data]').querySelector('code').textContent); copied = true; setTimeout(() => copied = false, 2000)"
+						class="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+						title="Copy secret"
+					>
+						<svg x-show="!copied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+						</svg>
+						<svg x-show="copied" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+						</svg>
+					</button>
+				</div>
+			</div>
+		</div>
+		<form hx-post="/user/totp/enable" hx-target="#totp-section" hx-swap="innerHTML" class="space-y-3 max-w-xs mx-auto">
+			<div>
+				<label for="totp-code" class="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
+				<input
+					id="totp-code"
+					name="code"
+					type="text"
+					inputmode="numeric"
+					autocomplete="one-time-code"
+					required
+					autofocus
+					class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm font-mono tracking-widest text-center"
+					placeholder="000000"
+				/>
+			</div>
+			<div class="flex gap-2">
+				<button type="submit" class="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+					Enable 2FA
+				</button>
+				<button
+					type="button"
+					hx-get="/user-info"
+					hx-target="#main-content"
+					hx-push-url="true"
+					class="py-2 px-4 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+				>
+					Cancel
+				</button>
+			</div>
+		</form>
+	</div>
+}
+
+// TOTPBackupCodesFragment renders the backup codes after enabling or regenerating 2FA codes.
+templ TOTPBackupCodesFragment(codes []string) {
+	<div class="space-y-4">
+		<div class="flex items-center gap-2 text-green-700">
+			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+			</svg>
+			<span class="font-semibold text-sm">Two-factor authentication enabled!</span>
+		</div>
+		<div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+			<p class="text-sm font-semibold text-amber-800 mb-1">Save your backup codes</p>
+			<p class="text-xs text-amber-700 mb-3">Store these somewhere safe. Each code can be used once if you lose access to your authenticator app.</p>
+			<div class="grid grid-cols-2 gap-2">
+				for _, code := range codes {
+					<code class="text-sm font-mono bg-white border border-amber-200 px-2 py-1 rounded text-center select-all">{ code }</code>
+				}
+			</div>
+		</div>
+		<p class="text-xs text-gray-500">These codes will not be shown again.</p>
+		<div class="pt-2 border-t border-gray-100">
+			@TOTPEnabledSection("")
+		</div>
+	</div>
+}
+
+// TOTPDisabledFragment renders the "not enabled" state.
+templ TOTPDisabledFragment(errMsg string) {
+	<div class="space-y-3" x-data="{ setupVisible: false }">
+		if errMsg != "" {
+			<div class="bg-red-50 border border-red-200 rounded-lg p-3">
+				<p class="text-sm text-red-700">{ errMsg }</p>
+			</div>
+		}
+		<p class="text-sm text-gray-500" x-show="!setupVisible">Not enabled</p>
+		<button
+			x-show="!setupVisible"
+			hx-get="/user/totp/setup"
+			hx-target="#totp-setup-area"
+			hx-swap="innerHTML"
+			@click="setupVisible = true"
+			class="py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+		>
+			Enable Two-Factor Authentication
+		</button>
+		<div id="totp-setup-area"></div>
+	</div>
+}
+
+// TOTPEnabledSection renders the enabled state with disable/regenerate options.
+templ TOTPEnabledSection(errMsg string) {
+	<div class="space-y-3" x-data="{ showDisable: false, showRegenerate: false }">
+		if errMsg != "" {
+			<div class="bg-red-50 border border-red-200 rounded-lg p-3">
+				<p class="text-sm text-red-700">{ errMsg }</p>
+			</div>
+		}
+		<div class="flex items-center gap-2">
+			<div class="h-2 w-2 rounded-full bg-green-500"></div>
+			<p class="text-sm font-semibold text-green-700">Enabled</p>
+		</div>
+		<div class="flex gap-3">
+			<button type="button" @click="showRegenerate = !showRegenerate; showDisable = false" class="text-sm text-purple-600 hover:text-purple-800 underline cursor-pointer">
+				Regenerate backup codes
+			</button>
+			<button type="button" @click="showDisable = !showDisable; showRegenerate = false" class="text-sm text-red-600 hover:text-red-800 underline cursor-pointer">
+				Disable 2FA
+			</button>
+		</div>
+
+		<div x-show="showRegenerate" x-cloak>
+			<form hx-post="/user/totp/backup-codes/regenerate" hx-target="#totp-section" hx-swap="innerHTML" class="space-y-2">
+				<label class="block text-xs text-gray-600">Enter your authenticator code to regenerate backup codes:</label>
+				<input
+					type="text"
+					name="code"
+					inputmode="numeric"
+					autocomplete="one-time-code"
+					required
+					class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+					placeholder="000000"
+				/>
+				<button type="submit" class="py-1.5 px-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer">
+					Regenerate
+				</button>
+			</form>
+		</div>
+
+		<div x-show="showDisable" x-cloak>
+			<form hx-post="/user/totp/disable" hx-target="#totp-section" hx-swap="innerHTML" class="space-y-2">
+				<label class="block text-xs text-gray-600">Confirm your password to disable 2FA:</label>
+				<input
+					type="password"
+					name="password"
+					required
+					class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+					placeholder="Your password"
+				/>
+				<button type="submit" class="py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer">
+					Confirm Disable
+				</button>
+			</form>
+		</div>
+	</div>
+}

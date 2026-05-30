@@ -121,6 +121,7 @@ func runServe() {
 	ingestionPipeline := pipeline.NewPipeline(cfg, database, store, hub, mailSvc, rspamdClient)
 
 	var dkimSigner *outbound.DKIMSigner
+	var dkimEncKey []byte
 	if cfg.DKIM.EncryptionKey != "" {
 		encKey, err := base64.StdEncoding.DecodeString(cfg.DKIM.EncryptionKey)
 		if err != nil || len(encKey) != 32 {
@@ -128,6 +129,7 @@ func runServe() {
 			os.Exit(1)
 		}
 		dkimSigner = outbound.NewDKIMSigner(database, encKey)
+		dkimEncKey = encKey
 	}
 	mta := outbound.NewMTA(cfg.SMTP.Domain, cfg.SMTP.Relay, dkimSigner)
 
@@ -140,12 +142,14 @@ func runServe() {
 	webServer := web.NewServer(web.ServerConfig{
 		Config:      *cfg,
 		DB:          database,
+		AdminDB:     database,
 		RateLimitDB: database,
 		Storage:     store,
 		Hub:         hub,
 		Sender:      mta,
 		Mail:        mailSvc,
 		Rspamd:      rspamdClient,
+		DKIMEncKey:  dkimEncKey,
 	})
 
 	// Services

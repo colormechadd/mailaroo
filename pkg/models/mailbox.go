@@ -37,6 +37,17 @@ type Thread struct {
 	Subject   string    `db:"subject" json:"subject"`
 }
 
+type SendingAddressWithUser struct {
+	SendingAddress
+	Username    string `db:"username"`
+	MailboxName string `db:"mailbox_name"`
+}
+
+type SendingAddressGroup struct {
+	Address string
+	Entries []SendingAddressWithUser
+}
+
 type MailboxBlockRule struct {
 	ID               uuid.UUID  `db:"id" json:"id"`
 	MailboxID        uuid.UUID  `db:"mailbox_id" json:"mailbox_id"`

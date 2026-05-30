@@ -281,6 +281,20 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 					}
 				</nav>
 				</div>
+				<!-- Admin -->
+				if user.IsAdmin {
+					<div class="px-4 py-2 border-t border-purple-100">
+						<a
+							href="/admin/users"
+							class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-500 hover:text-purple-600 hover:bg-purple-50/50"
+						>
+							<div class="h-5 w-5 text-gray-400">
+								@IconAdmin()
+							</div>
+							Admin
+						</a>
+					</div>
+				}
 				<!-- Contacts -->
 				<div class="px-4 py-2 border-t border-purple-100">
 					<a

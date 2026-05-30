@@ -52,6 +52,24 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, user *models.Use
 	templates.Dashboard(user, mailboxes, currentMailboxID, filter, counts, content, csrf.Token(r), title).Render(r.Context(), w)
 }
 
+func (s *Server) renderAdmin(w http.ResponseWriter, r *http.Request, user *models.User, activeSection string, content templ.Component, title string) {
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-History-Restore-Request") != "true" {
+		content.Render(r.Context(), w)
+		fmt.Fprintf(w, "<title>%s - MAILAROO Admin</title>", html.EscapeString(title))
+		return
+	}
+	templates.AdminDashboard(user, content, csrf.Token(r), title).Render(r.Context(), w)
+}
+
+// safeRedirect returns to if it is a valid relative path (starts with / but not //),
+// otherwise returns fallback. Prevents open redirect attacks.
+func safeRedirect(to, fallback string) string {
+	if strings.HasPrefix(to, "/") && !strings.HasPrefix(to, "//") {
+		return to
+	}
+	return fallback
+}
+
 func filterTitle(filter string) string {
 	switch filter {
 	case "sent":

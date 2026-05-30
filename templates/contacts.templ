@@ -6,14 +6,19 @@ import (
 	"time"
 )
 
-templ ContactsPage(mailboxID uuid.UUID, contacts []models.Contact, selected *models.Contact, recentEmails []models.Email, showNew bool, isBlocked bool) {
+templ ContactsPage(mailboxID uuid.UUID, mbName string, contacts []models.Contact, selected *models.Contact, recentEmails []models.Email, showNew bool, blockRule *models.MailboxBlockRule) {
 	{{ base := "/mailbox/" + mailboxID.String() + "/contacts" }}
 	<div class="flex-1 flex h-full overflow-hidden animate-in fade-in duration-300">
 		<!-- Contact List -->
 		<div class="w-80 flex-shrink-0 border-r border-purple-100 flex flex-col bg-white">
 			<!-- Header -->
 			<div class="px-6 py-5 border-b border-purple-100 flex items-center justify-between">
-				<h2 class="text-lg font-bold text-gray-900 uppercase tracking-tight">Contacts</h2>
+				<div>
+					<h2 class="text-lg font-bold text-gray-900 uppercase tracking-tight">Contacts</h2>
+					if mbName != "" {
+						<p class="text-xs text-gray-400 mt-0.5">{ mbName }</p>
+					}
+				</div>
 				<button
 					class="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow shadow-purple-200 transition-all cursor-pointer"
 					hx-get={ base + "?new=1" }
@@ -41,7 +46,7 @@ templ ContactsPage(mailboxID uuid.UUID, contacts []models.Contact, selected *mod
 						@input.debounce.300ms="
 							const q = $event.target.value.toLowerCase();
 							document.querySelectorAll('[data-contact-row]').forEach(el => {
-								el.style.display = el.dataset.search.includes(q) ? '' : 'none';
+								el.style.display = el.dataset.search.toLowerCase().includes(q) ? '' : 'none';
 							});
 						"
 					/>
@@ -98,7 +103,7 @@ templ ContactsPage(mailboxID uuid.UUID, contacts []models.Contact, selected *mod
 		<!-- Detail / Edit Panel -->
 		<div class="flex-1 flex flex-col bg-white overflow-y-auto">
 			if selected != nil {
-				@contactEditForm(mailboxID, selected, recentEmails, isBlocked)
+				@contactEditForm(mailboxID, selected, recentEmails, blockRule)
 			} else if showNew {
 				@contactNewForm(mailboxID)
 			} else {
@@ -132,7 +137,7 @@ templ contactNewForm(mailboxID uuid.UUID) {
 	</div>
 }
 
-templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []models.Email, isBlocked bool) {
+templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []models.Email, blockRule *models.MailboxBlockRule) {
 	{{ base := "/mailbox/" + mailboxID.String() + "/contacts" }}
 	<div class="flex flex-col h-full" id="contact-form-area">
 		<div class="px-8 py-6 border-b border-purple-100 flex items-center justify-between">
@@ -145,7 +150,7 @@ templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []mod
 				<div>
 					<div class="flex items-center gap-2">
 						<h3 class="text-lg font-bold text-gray-900">{ c.DisplayName() }</h3>
-						if isBlocked {
+						if blockRule != nil {
 							<span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
 								<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 115.636 5.636m12.728 12.728L5.636 5.636"/>
@@ -196,6 +201,26 @@ templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []mod
 				>
 					<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+					</svg>
+				</button>
+				<!-- Block/Unblock -->
+				<button
+					type="button"
+					hx-post={ base + "/" + c.ID.String() + "/block" }
+					hx-target="#main-content"
+					if blockRule != nil {
+						hx-confirm={ "Unblock " + c.Email + "?" }
+						title="Unblock contact"
+					} else {
+						hx-confirm={ "Block all emails from " + c.Email + "?" }
+						title="Block contact"
+					}
+					class={ "p-2 rounded-full transition-colors cursor-pointer",
+						templ.KV("text-red-400 hover:bg-red-50", blockRule != nil),
+						templ.KV("text-gray-300 hover:text-red-400 hover:bg-red-50", blockRule == nil) }
+				>
+					<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 115.636 5.636m12.728 12.728L5.636 5.636"/>
 					</svg>
 				</button>
 				<!-- Delete -->
@@ -278,29 +303,29 @@ templ contactFormFields(c models.Contact, isNew bool) {
 		</div>
 	</div>
 
-	<!-- Email -->
-	<div>
-		<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email <span class="text-red-400">*</span></label>
-		<input
-			type="email"
-			name="email"
-			value={ c.Email }
-			required
-			placeholder="email@example.com"
-			class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all"
-		/>
-	</div>
-
-	<!-- Phone -->
-	<div>
-		<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone</label>
-		<input
-			type="tel"
-			name="phone"
-			value={ c.Phone }
-			placeholder="+1 (555) 000-0000"
-			class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all"
-		/>
+	<!-- Email + Phone -->
+	<div class="grid grid-cols-2 gap-4">
+		<div>
+			<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email <span class="text-red-400">*</span></label>
+			<input
+				type="email"
+				name="email"
+				value={ c.Email }
+				required
+				placeholder="email@example.com"
+				class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all"
+			/>
+		</div>
+		<div>
+			<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone</label>
+			<input
+				type="tel"
+				name="phone"
+				value={ c.Phone }
+				placeholder="+1 (555) 000-0000"
+				class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all"
+			/>
+		</div>
 	</div>
 
 	<!-- Address -->
@@ -358,18 +383,7 @@ templ contactFormFields(c models.Contact, isNew bool) {
 		>{ c.Notes }</textarea>
 	</div>
 
-	<!-- Favorite -->
-	<div class="flex items-center gap-3">
-		<input
-			type="checkbox"
-			name="is_favorite"
-			id="is_favorite"
-			value="on"
-			checked?={ c.IsFavorite }
-			class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
-		/>
-		<label for="is_favorite" class="text-sm font-medium text-gray-700 cursor-pointer">Mark as favorite</label>
-	</div>
+	<input type="hidden" name="is_favorite" value={ func() string { if c.IsFavorite { return "on" } else { return "" } }() }/>
 
 	<!-- Actions -->
 	<div class="pt-2 flex justify-end gap-3">
