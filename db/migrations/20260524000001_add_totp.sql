@@ -16,6 +16,6 @@ CREATE TABLE public.totp_pending (
 
 -- migrate:down
 drop table if exists public.totp_pending;
-alter table public."uesr" drop column totp_backup_codes;
-alter table public."uesr" drop column totp_secret;
-alter table public."uesr" drop column totp_enabled;
+alter table public."user" drop column totp_backup_codes;
+alter table public."user" drop column totp_secret;
+alter table public."user" drop column totp_enabled;
