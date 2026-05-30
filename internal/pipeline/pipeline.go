@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/internal/config"
 	"github.com/colormechadd/mailaroo/internal/db"
 	"github.com/colormechadd/mailaroo/internal/mail"
@@ -41,26 +42,28 @@ type Broadcaster interface {
 type Step func(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error)
 
 type Pipeline struct {
-	cfg     *config.Config
-	db      db.PipelineDB
-	storage storage.Storage
-	hub     Broadcaster
-	mail    *mail.Service
-	rspamd  *rspamd.Client
-	steps   []struct {
+	cfg        *config.Config
+	db         db.PipelineDB
+	storage    storage.Storage
+	hub        Broadcaster
+	mail       *mail.Service
+	rspamd     *rspamd.Client
+	classifier classifier.Classifier
+	steps      []struct {
 		name string
 		fn   Step
 	}
 }
 
-func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, hub Broadcaster, mailSvc *mail.Service, rspamdClient *rspamd.Client) *Pipeline {
+func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, hub Broadcaster, mailSvc *mail.Service, rspamdClient *rspamd.Client, classifier classifier.Classifier) *Pipeline {
 	p := &Pipeline{
-		cfg:     cfg,
-		db:      db,
-		storage: storage,
-		hub:     hub,
-		mail:    mailSvc,
-		rspamd:  rspamdClient,
+		cfg:        cfg,
+		db:         db,
+		storage:    storage,
+		hub:        hub,
+		mail:       mailSvc,
+		rspamd:     rspamdClient,
+		classifier: classifier,
 	}
 
 	p.steps = []struct {
@@ -74,6 +77,7 @@ func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, 
 		{"spam", ValidateRBL},
 		{"check_spam", CheckSpam},
 		{"block", CheckBlockingRules},
+		{"classify_email", ClassifyEmail},
 		{"apply_filter_rules", ApplyFilterRules},
 		{"finalize", Finalize},
 		{"notify", Notify},
@@ -95,6 +99,7 @@ type IngestionContext struct {
 	MatchedFilterRuleID *uuid.UUID
 	FilterAction        string
 	IsRead              bool
+	Category            string
 }
 
 func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {

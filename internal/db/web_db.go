@@ -19,6 +19,7 @@ type EmailFilter struct {
 	Participant string // ILIKE match on from_address OR to_address
 	Subject     string // ILIKE match on subject
 	Text        string // full-text search via search_vector
+	Category    string // exact match on category
 }
 
 type WebDB interface {
@@ -36,9 +37,11 @@ type WebDB interface {
 	GetIngestionStepsByEmailID(ctx context.Context, emailID, userID uuid.UUID) ([]models.IngestionStep, error)
 
 	CountEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, filter string) (int, error)
+	CountEmailsByCategory(ctx context.Context, mailboxID, userID uuid.UUID, view string) (map[string]int, error)
 	MarkEmailRead(ctx context.Context, emailID, userID uuid.UUID, read bool) error
 	MarkEmailStarred(ctx context.Context, emailID, userID uuid.UUID, starred bool) error
 	UpdateEmailStatus(ctx context.Context, emailID, userID uuid.UUID, status models.EmailStatus) error
+	UpdateEmailCategory(ctx context.Context, emailID, userID uuid.UUID, category string) error
 	BulkMarkEmailRead(ctx context.Context, ids []uuid.UUID, userID uuid.UUID, read bool) error
 	BulkUpdateEmailStatus(ctx context.Context, ids []uuid.UUID, userID uuid.UUID, status models.EmailStatus) error
 
@@ -130,6 +133,29 @@ func (db *DB) GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]mod
 	return mailboxes, err
 }
 
+func viewConditions(view string) []string {
+	switch view {
+	case "unread":
+		return []string{"e.is_read = FALSE", "e.status = 'INBOX'", "e.direction = 'INBOUND'"}
+	case "read":
+		return []string{"e.is_read = TRUE", "e.status = 'INBOX'", "e.direction = 'INBOUND'"}
+	case "starred":
+		return []string{"e.is_star = TRUE", "e.status != 'DELETED'"}
+	case "quarantined":
+		return []string{"e.status = 'QUARANTINED'"}
+	case "deleted":
+		return []string{"e.status = 'DELETED'"}
+	case "sent":
+		return []string{"e.direction = 'OUTBOUND'", "e.status != 'DELETED'"}
+	case "all":
+		return []string{"e.status = 'INBOX'"}
+	case "mail":
+		return []string{"e.status = 'INBOX'", "e.direction = 'INBOUND'"}
+	default:
+		return []string{"e.status != 'DELETED'"}
+	}
+}
+
 func (db *DB) SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f EmailFilter, limit int, cursorTime *time.Time, cursorID *uuid.UUID) ([]models.Email, error) {
 	args := []interface{}{mailboxID, userID}
 	conditions := []string{
@@ -138,26 +164,7 @@ func (db *DB) SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f E
 		"mu.is_active = TRUE",
 	}
 
-	switch f.View {
-	case "unread":
-		conditions = append(conditions, "e.is_read = FALSE", "e.status = 'INBOX'", "e.direction = 'INBOUND'")
-	case "read":
-		conditions = append(conditions, "e.is_read = TRUE", "e.status = 'INBOX'", "e.direction = 'INBOUND'")
-	case "starred":
-		conditions = append(conditions, "e.is_star = TRUE", "e.status != 'DELETED'")
-	case "quarantined":
-		conditions = append(conditions, "e.status = 'QUARANTINED'")
-	case "deleted":
-		conditions = append(conditions, "e.status = 'DELETED'")
-	case "sent":
-		conditions = append(conditions, "e.direction = 'OUTBOUND'", "e.status != 'DELETED'")
-	case "all":
-		conditions = append(conditions, "e.status = 'INBOX'")
-	case "mail":
-		conditions = append(conditions, "e.status = 'INBOX'", "e.direction = 'INBOUND'")
-	default:
-		conditions = append(conditions, "e.status != 'DELETED'")
-	}
+	conditions = append(conditions, viewConditions(f.View)...)
 
 	next := func() int { return len(args) + 1 }
 
@@ -177,6 +184,10 @@ func (db *DB) SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f E
 	if f.Subject != "" {
 		conditions = append(conditions, fmt.Sprintf("e.subject ILIKE $%d", next()))
 		args = append(args, "%"+f.Subject+"%")
+	}
+	if f.Category != "" {
+		conditions = append(conditions, fmt.Sprintf("e.category = $%d", next()))
+		args = append(args, f.Category)
 	}
 	if f.Text != "" {
 		conditions = append(conditions, fmt.Sprintf("e.search_vector @@ plainto_tsquery('english', $%d)", next()))
@@ -200,7 +211,7 @@ func (db *DB) SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f E
 			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id,
 			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address,
 			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star,
-			e.direction, e.status, e.sending_address_id, e.user_id, e.body_plain
+			e.direction, e.status, e.sending_address_id, e.user_id, e.body_plain, e.category
 		FROM email e
 		JOIN mailbox_user mu ON e.mailbox_id = mu.mailbox_id
 		WHERE %s
@@ -212,6 +223,43 @@ func (db *DB) SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f E
 	var emails []models.Email
 	err := db.SelectContext(ctx, &emails, sql, args...)
 	return emails, err
+}
+
+func (db *DB) CountEmailsByCategory(ctx context.Context, mailboxID, userID uuid.UUID, view string) (map[string]int, error) {
+	args := []interface{}{mailboxID, userID}
+	conditions := []string{
+		"e.mailbox_id = $1",
+		"mu.user_id = $2",
+		"mu.is_active = TRUE",
+	}
+
+	conditions = append(conditions, viewConditions(view)...)
+
+	where := strings.Join(conditions, "\n  AND ")
+
+	query := fmt.Sprintf(`
+		SELECT COALESCE(NULLIF(e.category, ''), 'none') AS cat, COUNT(*) AS cnt
+		FROM email e
+		JOIN mailbox_user mu ON e.mailbox_id = mu.mailbox_id
+		WHERE %s
+		GROUP BY cat
+	`, where)
+
+	type row struct {
+		Cat string `db:"cat"`
+		Cnt int    `db:"cnt"`
+	}
+	var rows []row
+	err := db.SelectContext(ctx, &rows, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int, len(rows))
+	for _, r := range rows {
+		counts[r.Cat] = r.Cnt
+	}
+	return counts, nil
 }
 
 func (db *DB) CountEmailsByMailboxID(ctx context.Context, mailboxID uuid.UUID, filter string) (int, error) {
@@ -337,6 +385,16 @@ func (db *DB) UpdateEmailStatus(ctx context.Context, emailID, userID uuid.UUID, 
 		FROM mailbox_user mu
 		WHERE e.mailbox_id = mu.mailbox_id AND e.id = $2 AND mu.user_id = $3 AND mu.is_active = TRUE
 	`, status, emailID, userID)
+	return err
+}
+
+func (db *DB) UpdateEmailCategory(ctx context.Context, emailID, userID uuid.UUID, category string) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE email e
+		SET category = $1
+		FROM mailbox_user mu
+		WHERE e.mailbox_id = mu.mailbox_id AND e.id = $2 AND mu.user_id = $3 AND mu.is_active = TRUE
+	`, category, emailID, userID)
 	return err
 }
 

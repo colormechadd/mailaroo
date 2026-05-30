@@ -208,6 +208,7 @@ func (s *Server) Routes() http.Handler {
 			r.Post("/email/{emailID}/unsubscribe", s.handleEmailUnsubscribe)
 			r.Post("/email/{emailID}/block", s.handleEmailBlockSender)
 			r.Post("/email/{emailID}/delete-and-block", s.handleEmailDeleteAndBlock)
+			r.Post("/email/{emailID}/category", s.handleEmailCategory)
 		})
 		r.Get("/attachment/{attachmentID}", s.handleAttachmentDownload)
 

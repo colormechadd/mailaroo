@@ -313,7 +313,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		sentURL := "/mailbox/" + sa.MailboxID.String() + "?filter=sent"
 		w.Header().Set("HX-Push-Url", sentURL)
 		counts := s.getCounts(r.Context(), sa.MailboxID, user.ID)
-		s.render(w, r, user, mailboxes, sa.MailboxID, "sent", counts, templates.MailboxContent(sa.MailboxID, "sent", emails, "", hasMore, contacts), "Sent")
+		s.render(w, r, user, mailboxes, sa.MailboxID, "sent", counts, templates.MailboxContent(sa.MailboxID, "sent", emails, "", hasMore, contacts, nil, ""), "Sent")
 		return
 	}
 	http.Redirect(w, r, "/mailbox/"+sa.MailboxID.String()+"?filter=sent", http.StatusSeeOther)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/pkg/models"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -23,6 +24,7 @@ type PipelineDB interface {
 	GetMailboxUserIDs(ctx context.Context, mailboxID uuid.UUID) ([]uuid.UUID, error)
 	GetActiveFilterRulesForMailbox(ctx context.Context, mailboxID uuid.UUID) ([]*models.FilterRule, error)
 	SetEmailFields(ctx context.Context, id uuid.UUID, isRead, isStar bool, status models.EmailStatus) error
+	SetEmailCategory(ctx context.Context, id uuid.UUID, category classifier.Category) error
 }
 
 func (db *DB) CreateIngestion(ctx context.Context, ingestion *models.Ingestion) error {
@@ -161,6 +163,11 @@ func (db *DB) GetMailboxUserIDs(ctx context.Context, mailboxID uuid.UUID) ([]uui
 		SELECT user_id FROM mailbox_user WHERE mailbox_id = $1 AND is_active = TRUE
 	`, mailboxID)
 	return ids, err
+}
+
+func (db *DB) SetEmailCategory(ctx context.Context, id uuid.UUID, category classifier.Category) error {
+	_, err := db.ExecContext(ctx, "UPDATE email SET category = $1, update_datetime = CURRENT_TIMESTAMP WHERE id = $2", string(category), id)
+	return err
 }
 
 func (db *DB) SetEmailFields(ctx context.Context, id uuid.UUID, isRead, isStar bool, status models.EmailStatus) error {

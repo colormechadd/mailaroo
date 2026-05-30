@@ -14,6 +14,7 @@ import (
 
 	gosmtp "github.com/emersion/go-smtp"
 
+	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/internal/config"
 	"github.com/colormechadd/mailaroo/internal/db"
 	"github.com/colormechadd/mailaroo/internal/mail"
@@ -118,7 +119,14 @@ func runServe() {
 
 	mailSvc := mail.NewService(database, store, cfg.Compression, signURL)
 	rspamdClient := rspamd.NewClient(cfg.Spam.RspamdURL)
-	ingestionPipeline := pipeline.NewPipeline(cfg, database, store, hub, mailSvc, rspamdClient)
+
+	classifierClient, err := classifier.New(cfg.Classifier)
+	if err != nil {
+		slog.Error("failed to create classifier", "error", err)
+		os.Exit(1)
+	}
+
+	ingestionPipeline := pipeline.NewPipeline(cfg, database, store, hub, mailSvc, rspamdClient, classifierClient)
 
 	var dkimSigner *outbound.DKIMSigner
 	var dkimEncKey []byte

@@ -202,7 +202,7 @@ func (s *Server) handleBulkEmailAction(w http.ResponseWriter, r *http.Request) {
 	if cs, err := s.DB.ListContacts(r.Context(), mailboxID); err == nil {
 		contacts = buildContactsMap(cs)
 	}
-	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore, contacts), "")
+	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore, contacts, nil, ""), "")
 }
 
 func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
@@ -313,6 +313,29 @@ func (s *Server) handleEmailMarkSpam(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleEmailMarkHam(w http.ResponseWriter, r *http.Request) {
 	s.handleEmailLearn(w, r, false, models.StatusInbox)
+}
+
+func (s *Server) handleEmailCategory(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	emailID, err := uuid.Parse(chi.URLParam(r, "emailID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	category := r.FormValue("category")
+	if category == "" {
+		http.Error(w, "Category required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.DB.UpdateEmailCategory(r.Context(), emailID, user.ID, category); err != nil {
+		slog.Error("failed to update email category", "email_id", emailID, "error", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/email/"+emailID.String(), http.StatusSeeOther)
 }
 
 func (s *Server) handleEmailUnsubscribe(w http.ResponseWriter, r *http.Request) {

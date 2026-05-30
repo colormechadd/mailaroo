@@ -128,6 +128,72 @@ func lookupContact(contacts map[string]*models.Contact, addr string) *models.Con
 	return contacts[strings.ToLower(email)]
 }
 
+func categoryLabel(cat string) string {
+	switch cat {
+	case "needs_response":
+		return "Needs Reply"
+	case "personal":
+		return "Personal"
+	case "marketing":
+		return "Marketing"
+	case "newsletter":
+		return "Newsletter"
+	case "transactional":
+		return "Transactional"
+	case "notification":
+		return "Notification"
+	case "spam":
+		return "Spam"
+	case "none":
+		return "None"
+	}
+	return ""
+}
+
+func categoryColor(cat string) string {
+	switch cat {
+	case "needs_response":
+		return "bg-amber-100 text-amber-700"
+	case "personal":
+		return "bg-blue-100 text-blue-700"
+	case "marketing":
+		return "bg-orange-100 text-orange-700"
+	case "newsletter":
+		return "bg-purple-100 text-purple-700"
+	case "transactional":
+		return "bg-teal-100 text-teal-700"
+	case "notification":
+		return "bg-gray-100 text-gray-600"
+	case "spam":
+		return "bg-red-100 text-red-700"
+	case "none":
+		return "bg-gray-100 text-gray-400"
+	}
+	return ""
+}
+
+func categoryRingColor(cat string) string {
+	switch cat {
+	case "needs_response":
+		return "ring-amber-400"
+	case "personal":
+		return "ring-blue-400"
+	case "marketing":
+		return "ring-orange-400"
+	case "newsletter":
+		return "ring-purple-400"
+	case "transactional":
+		return "ring-teal-400"
+	case "notification":
+		return "ring-gray-400"
+	case "spam":
+		return "ring-red-400"
+	case "none":
+		return "ring-gray-300"
+	}
+	return "ring-gray-300"
+}
+
 func mailboxFilterTitle(filter string) string {
 	switch filter {
 	case "starred":
@@ -420,8 +486,13 @@ templ EmailListRows(emails []models.Email, filter string, loadMoreURL string, ha
 						{ email.ReceiveDatetime.Format("Jan 02, 15:04") }
 					</p>
 				</div>
-				<p class={ "text-sm truncate", templ.KV("text-gray-900", !email.IsRead), templ.KV("text-gray-400", email.IsRead) }>
-					{ email.Subject }
+				<p class={ "text-sm truncate flex items-center gap-2", templ.KV("text-gray-900", !email.IsRead), templ.KV("text-gray-400", email.IsRead) }>
+					if email.Category != "" {
+						<span class={ "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none flex-shrink-0", categoryColor(email.Category) }>
+							{ categoryLabel(email.Category) }
+						</span>
+					}
+					<span class="truncate">{ email.Subject }</span>
 				</p>
 			</div>
 		</li>
@@ -436,7 +507,7 @@ templ EmailListRows(emails []models.Email, filter string, loadMoreURL string, ha
 	}
 }
 
-templ MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, searchQuery string, hasMore bool, contacts map[string]*models.Contact) {
+templ MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, searchQuery string, hasMore bool, contacts map[string]*models.Contact, categoryCounts map[string]int, currentCategory string) {
 	<!-- Refresh this list when new mail arrives; removed when navigating away so it won't hijack other views -->
 	<div hx-trigger="sse:new-mail" hx-get={ "/mailbox/" + mailboxID.String() + "?filter=" + filter } hx-target="#main-content" class="hidden"></div>
 	<!-- Header -->
@@ -492,6 +563,41 @@ templ MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, 
 				@change="toggleAll($event.target.checked)"
 			/>
 			<span class="text-sm font-medium text-gray-500">Select All</span>
+		</div>
+		<div class="flex items-center gap-1.5">
+			{{
+				sortedCats := make([]string, 0, len(categoryCounts))
+				for cat := range categoryCounts {
+					sortedCats = append(sortedCats, cat)
+				}
+				sort.Strings(sortedCats)
+			}}
+			for _, cat := range sortedCats {
+				{{ count := categoryCounts[cat] }}
+				if count > 0 {
+					{{
+						href := "/mailbox/" + mailboxID.String() + "?filter=" + filter
+						if currentCategory == cat {
+							href = href
+						} else {
+							href = href + "&category=" + cat
+						}
+					}}
+					<a
+						href={ templ.URL(href) }
+						hx-get={ templ.URL(href) }
+						hx-target="#main-content"
+						hx-push-url="true"
+						class={ "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold transition-all cursor-pointer",
+							templ.KV("ring-2 bg-purple-50", currentCategory == cat),
+							categoryRingColor(cat),
+							categoryColor(cat) }
+					>
+						{ categoryLabel(cat) }
+						<span class="text-[10px] opacity-70">{ formatCount(count) }</span>
+					</a>
+				}
+			}
 		</div>
 	</div>
 
@@ -580,7 +686,7 @@ templ MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, 
 
 templ SearchContent(mailboxID uuid.UUID, query string, emails []models.Email, hasMore bool, contacts map[string]*models.Contact) {
 	<!-- Search content uses the same structure as MailboxContent -->
-	@MailboxContent(mailboxID, "search", emails, query, hasMore, contacts)
+	@MailboxContent(mailboxID, "search", emails, query, hasMore, contacts, nil, "")
 }
 
 templ DraftsContent(mailboxID uuid.UUID, drafts []models.Draft) {

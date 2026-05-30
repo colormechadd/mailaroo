@@ -16,20 +16,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
--- *not* creating schema, since initdb creates it
-
-
---
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON SCHEMA public IS '';
-
-
---
 -- Name: email_direction; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -176,7 +162,8 @@ CREATE TABLE public.email (
     status public.email_status DEFAULT 'INBOX'::public.email_status NOT NULL,
     create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     update_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    purged_datetime timestamp with time zone
+    purged_datetime timestamp with time zone,
+    category text DEFAULT ''::text NOT NULL
 );
 
 
@@ -1159,4 +1146,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260510000000'),
     ('20260510000001'),
     ('20260523000000'),
-    ('20260524000001');
+    ('20260524000001'),
+    ('20260530000001');

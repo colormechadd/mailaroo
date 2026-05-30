@@ -37,7 +37,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.MailboxContent(uuid.Nil, "all", nil, "", false, nil), "MAILAROO")
+	s.render(w, r, user, mailboxes, uuid.Nil, "all", nil, templates.MailboxContent(uuid.Nil, "all", nil, "", false, nil, nil, ""), "MAILAROO")
 }
 
 func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
@@ -92,8 +92,9 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	category := r.URL.Query().Get("category")
 	const pageSize = 50
-	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter}, pageSize, nil, nil)
+	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter, Category: category}, pageSize, nil, nil)
 	if err != nil {
 		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -105,7 +106,8 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	if cs, err := s.DB.ListContacts(r.Context(), mailboxID); err == nil {
 		contacts = buildContactsMap(cs)
 	}
-	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore, contacts), filterTitle(filter))
+	categoryCounts, _ := s.DB.CountEmailsByCategory(r.Context(), mailboxID, user.ID, filter)
+	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore, contacts, categoryCounts, category), filterTitle(filter))
 }
 
 func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +190,8 @@ func (s *Server) handleMailboxMore(w http.ResponseWriter, r *http.Request) {
 		filter = "all"
 	}
 
+	category := r.URL.Query().Get("category")
+
 	cursorTime, cursorID, err := decodeCursor(r.URL.Query().Get("cursor"))
 	if err != nil {
 		http.Error(w, "Invalid cursor", http.StatusBadRequest)
@@ -195,7 +199,7 @@ func (s *Server) handleMailboxMore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const pageSize = 50
-	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter}, pageSize, cursorTime, cursorID)
+	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter, Category: category}, pageSize, cursorTime, cursorID)
 
 	if err != nil {
 		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
@@ -208,6 +212,9 @@ func (s *Server) handleMailboxMore(w http.ResponseWriter, r *http.Request) {
 	if hasMore {
 		last := emails[len(emails)-1]
 		loadMoreURL = "/mailbox/" + mailboxID.String() + "/more?filter=" + filter + "&cursor=" + encodeCursor(last.ReceiveDatetime, last.ID)
+		if category != "" {
+			loadMoreURL += "&category=" + category
+		}
 	}
 	var contacts map[string]*models.Contact
 	if cs, err := s.DB.ListContacts(r.Context(), mailboxID); err == nil {

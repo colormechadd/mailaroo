@@ -37,6 +37,13 @@ type GCSStorageConfig struct {
 	Prefix string `mapstructure:"PREFIX"`
 }
 
+type ClassifierConfig struct {
+	Type   string `mapstructure:"TYPE"`
+	APIKey string `mapstructure:"API_KEY"`
+	Model  string `mapstructure:"MODEL"`
+	URL    string `mapstructure:"URL"`
+}
+
 type RateLimitConfig struct {
 	SMTPConnectionsPerMinute int           `mapstructure:"SMTP_CONNECTIONS_PER_MINUTE"`
 	SMTPAutoBlockThreshold   int           `mapstructure:"SMTP_AUTO_BLOCK_THRESHOLD"`
@@ -79,6 +86,8 @@ type Config struct {
 		SessionExpirationSeconds int    `mapstructure:"SESSION_EXPIRATION_SECONDS"`
 	} `mapstructure:"WEB"`
 
+	Classifier ClassifierConfig `mapstructure:"CLASSIFIER"`
+
 	LocalStorage LocalStorageConfig `mapstructure:"LOCAL_STORAGE"`
 	S3Storage    S3StorageConfig    `mapstructure:"S3_STORAGE"`
 	GCSStorage   GCSStorageConfig   `mapstructure:"GCS_STORAGE"`
@@ -114,6 +123,10 @@ func LoadConfig() (*Config, error) {
 
 	viper.SetDefault("STORAGE_TYPE", "local")
 	viper.SetDefault("COMPRESSION", "none")
+	viper.SetDefault("CLASSIFIER.TYPE", "")
+	viper.SetDefault("CLASSIFIER.MODEL", "gpt-4o-mini")
+	viper.SetDefault("CLASSIFIER.URL", "https://api.openai.com/v1")
+
 	viper.SetDefault("LOCAL_STORAGE.BASE_PATH", "./data/emails")
 
 	// Try to load .env file

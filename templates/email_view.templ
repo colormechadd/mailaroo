@@ -134,7 +134,41 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 			</div>
 			
 			<div class="flex items-start justify-between">
-				@EmailSenderInfo(email, senderContact, senderBlocked)
+				<div class="flex-1">
+					@EmailSenderInfo(email, senderContact, senderBlocked)
+					{{
+						allCategories := []string{"needs_response", "personal", "marketing", "newsletter", "transactional", "notification", "spam"}
+						currentLabel := email.Category
+						if currentLabel == "" {
+							currentLabel = "none"
+						}
+					}}
+					<div x-data="{ open: false }" class="relative mt-2">
+						<button
+							@click="open = !open"
+							@click.outside="open = false"
+							class={ "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer hover:ring-2 hover:ring-purple-200 transition-all", categoryColor(currentLabel) }
+						>
+							{ categoryLabel(currentLabel) }
+							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+						</button>
+						<div x-show="open" x-cloak class="absolute left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+							for _, cat := range allCategories {
+								if cat == email.Category {
+									<span class="block px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed">{ categoryLabel(cat) }</span>
+								} else {
+									<button
+										class="block w-full text-left px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+										hx-post={ "/email/" + email.ID.String() + "/category" }
+										hx-vals={ fmt.Sprintf(`{"category":"%s"}`, cat) }
+										hx-target="#main-content"
+										@click="open = false"
+									>{ categoryLabel(cat) }</button>
+								}
+							}
+						</div>
+					</div>
+				</div>
 				<div class="text-right">
 					<p class="text-gray-500 text-sm font-medium" data-local-time={ email.ReceiveDatetime.Format(time.RFC3339) } data-format="full">
 						{ email.ReceiveDatetime.Format("Jan 02, 2006, 15:04") }

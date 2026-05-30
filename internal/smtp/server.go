@@ -56,8 +56,8 @@ func (bkd *Backend) NewSession(c *gosmtp.Conn) (gosmtp.Session, error) {
 
 	parsedIP := net.ParseIP(remoteIP)
 
-	// Check persistent IP block list
-	if parsedIP != nil {
+	// Check persistent IP block list (skip for loopback)
+	if parsedIP != nil && !parsedIP.IsLoopback() {
 		blocked, err := bkd.rateLimitDB.IsIPBlocked(context.Background(), parsedIP)
 		if err != nil {
 			slog.Error("failed to check ip block", "ip", remoteIP, "error", err)
@@ -70,8 +70,8 @@ func (bkd *Backend) NewSession(c *gosmtp.Conn) (gosmtp.Session, error) {
 		}
 	}
 
-	// In-memory per-IP rate limiting
-	if parsedIP != nil && bkd.rateCfg.SMTPConnectionsPerMinute > 0 {
+	// In-memory per-IP rate limiting (skip for loopback)
+	if parsedIP != nil && !parsedIP.IsLoopback() && bkd.rateCfg.SMTPConnectionsPerMinute > 0 {
 		limiter := bkd.getLimiter(remoteIP)
 		if !limiter.Allow() {
 			bkd.mu.Lock()
@@ -138,8 +138,8 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 		}
 	}
 
-	// Greylisting: check (ip, from, to) triplet before accepting the recipient
-	if s.remoteIP != nil && s.backend.rateCfg.GreylistEnabled {
+	// Greylisting: check (ip, from, to) triplet before accepting the recipient (skip for loopback)
+	if s.remoteIP != nil && !s.remoteIP.IsLoopback() && s.backend.rateCfg.GreylistEnabled {
 		pass, err := s.backend.rateLimitDB.CheckAndUpdateGreylist(
 			context.Background(), s.remoteIP, s.from, to, s.backend.rateCfg.GreylistDelay,
 		)

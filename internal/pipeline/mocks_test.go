@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/pkg/models"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -75,6 +76,11 @@ func (m *MockDB) GetMailboxUserIDs(ctx context.Context, mailboxID uuid.UUID) ([]
 func (m *MockDB) GetActiveFilterRulesForMailbox(ctx context.Context, mailboxID uuid.UUID) ([]*models.FilterRule, error) {
 	args := m.Called(ctx, mailboxID)
 	return args.Get(0).([]*models.FilterRule), args.Error(1)
+}
+
+func (m *MockDB) SetEmailCategory(ctx context.Context, id uuid.UUID, category classifier.Category) error {
+	args := m.Called(ctx, id, category)
+	return args.Error(0)
 }
 
 func (m *MockDB) SetEmailFields(ctx context.Context, id uuid.UUID, isRead, isStar bool, status models.EmailStatus) error {
