@@ -132,6 +132,13 @@ templ contactNewForm(mailboxID uuid.UUID) {
 			hx-push-url={ base }
 			class="flex-1 overflow-y-auto px-8 py-6 space-y-6"
 		>
+			<div class="sticky top-0 z-10 -mx-8 -mt-6 px-8 pt-6 pb-4 bg-white/95 backdrop-blur-sm border-b border-purple-100 mb-2">
+				<div class="flex justify-end">
+					<button type="submit" class="px-5 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-bold shadow shadow-teal-100 transition-all cursor-pointer text-sm">
+						Save Contact
+					</button>
+				</div>
+			</div>
 			@contactFormFields(models.Contact{}, true)
 		</form>
 	</div>
@@ -139,7 +146,7 @@ templ contactNewForm(mailboxID uuid.UUID) {
 
 templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []models.Email, blockRule *models.MailboxBlockRule) {
 	{{ base := "/mailbox/" + mailboxID.String() + "/contacts" }}
-	<div class="flex flex-col h-full" id="contact-form-area">
+	<div class="flex flex-col h-full" id="contact-form-area" x-data="{ dirty: false }" @input="dirty = true">
 		<div class="px-8 py-6 border-b border-purple-100 flex items-center justify-between">
 			<div class="flex items-center gap-4">
 				<div class={ "h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0",
@@ -163,6 +170,20 @@ templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []mod
 				</div>
 			</div>
 			<div class="flex items-center gap-2">
+				<!-- Save -->
+				<button
+					type="submit"
+					form="contact-edit-form"
+					x-show="dirty"
+					x-cloak
+					x-transition:enter="transition ease-out duration-200"
+					x-transition:enter-start="opacity-0 scale-90"
+					x-transition:enter-end="opacity-100 scale-100"
+					title="Save changes"
+					class="px-3 py-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-xs font-bold shadow shadow-teal-100 transition-all cursor-pointer"
+				>
+					Save
+				</button>
 				<!-- Favorite toggle -->
 				<button
 					type="button"
@@ -239,6 +260,7 @@ templ contactEditForm(mailboxID uuid.UUID, c *models.Contact, recentEmails []mod
 			</div>
 		</div>
 		<form
+			id="contact-edit-form"
 			hx-put={ base + "/" + c.ID.String() }
 			hx-target="#main-content"
 			class="overflow-y-auto px-8 py-6 space-y-6"
@@ -384,18 +406,4 @@ templ contactFormFields(c models.Contact, isNew bool) {
 	</div>
 
 	<input type="hidden" name="is_favorite" value={ func() string { if c.IsFavorite { return "on" } else { return "" } }() }/>
-
-	<!-- Actions -->
-	<div class="pt-2 flex justify-end gap-3">
-		<button
-			type="submit"
-			class="px-6 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-bold shadow shadow-teal-100 transition-all cursor-pointer text-sm"
-		>
-			if isNew {
-				Save Contact
-			} else {
-				Save Changes
-			}
-		</button>
-	</div>
 }

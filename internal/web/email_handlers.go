@@ -202,6 +202,7 @@ func (s *Server) handleBulkEmailAction(w http.ResponseWriter, r *http.Request) {
 	if cs, err := s.DB.ListContacts(r.Context(), mailboxID); err == nil {
 		contacts = buildContactsMap(cs)
 	}
+	w.Header().Set("HX-Trigger", "updateUnreadCount")
 	s.render(w, r, user, mailboxes, mailboxID, filter, counts, templates.MailboxContent(mailboxID, filter, emails, "", hasMore, contacts, nil, ""), "")
 }
 

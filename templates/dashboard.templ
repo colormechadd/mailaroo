@@ -260,6 +260,8 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 		>
 			<!-- Update unread count badge on new mail regardless of current view -->
 			<div hx-trigger="sse:new-mail" hx-get={ "/mailbox/" + currentMailboxID.String() + "/unread-count" } hx-target={ "#badge-" + currentMailboxID.String() + "-mail" } hx-swap="innerHTML" class="hidden"></div>
+			<!-- Update unread count badge after bulk actions -->
+			<div hx-trigger="updateUnreadCount from:body" hx-get={ "/mailbox/" + currentMailboxID.String() + "/unread-count" } hx-target={ "#badge-" + currentMailboxID.String() + "-mail" } hx-swap="innerHTML" class="hidden"></div>
 
 			<!-- Sidebar -->
 			<aside class="w-64 flex-shrink-0 bg-white border-r border-purple-100 flex flex-col">
@@ -414,7 +416,7 @@ templ Dashboard(user *models.User, mailboxes []models.Mailbox, currentMailboxID 
 templ EmailListRows(emails []models.Email, filter string, loadMoreURL string, hasMore bool, contacts map[string]*models.Contact) {
 	for _, email := range emails {
 		<li
-			class={ "hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-6 py-3 gap-4", templ.KV("bg-purple-50/30", !email.IsRead) }
+			class={ "hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-4 py-2 gap-3", templ.KV("bg-purple-50/30", !email.IsRead) }
 			data-email-id={ email.ID.String() }
 			hx-get={ "/email/" + email.ID.String() }
 			hx-target="#main-content"
@@ -438,7 +440,7 @@ templ EmailListRows(emails []models.Email, filter string, loadMoreURL string, ha
 				}
 				rowContact := lookupContact(contacts, displayAddr)
 			}}
-			<div class={ "h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0", getAvatarColor(displayAddr) }>
+			<div class={ "h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0", getAvatarColor(displayAddr) }>
 				if rowContact != nil {
 					{ rowContact.Initials() }
 				} else {
@@ -619,7 +621,7 @@ templ MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, 
 					loadMoreURL = "/mailbox/" + mailboxID.String() + "/more?filter=" + filter + "&cursor=" + cursor
 				}
 			}}
-			<ul class="divide-y divide-gray-50">
+			<ul class="divide-y divide-gray-200" role="list">
 				@EmailListRows(emails, filter, loadMoreURL, hasMore, contacts)
 			</ul>
 		} else if mailboxID != uuid.Nil {
@@ -695,17 +697,17 @@ templ DraftsContent(mailboxID uuid.UUID, drafts []models.Draft) {
 	</header>
 	<div class="flex-1 overflow-y-auto">
 		if len(drafts) > 0 {
-			<ul class="divide-y divide-gray-50">
+			<ul class="divide-y divide-gray-200">
 				for _, draft := range drafts {
 					<li
-						class="hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-6 py-4 gap-4"
+						class="hover:bg-gray-50 transition-colors cursor-pointer group relative flex items-center px-4 py-2 gap-3"
 						hx-get={ "/compose?draft=" + draft.ID.String() }
 						hx-target="#main-content"
 						hx-push-url="true"
 						hx-swap="innerHTML"
 					>
-						<div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-							<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
 							</svg>
 						</div>
