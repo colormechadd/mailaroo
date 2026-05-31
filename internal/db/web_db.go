@@ -186,8 +186,12 @@ func (db *DB) SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f E
 		args = append(args, "%"+f.Subject+"%")
 	}
 	if f.Category != "" {
-		conditions = append(conditions, fmt.Sprintf("e.category = $%d", next()))
-		args = append(args, f.Category)
+		if f.Category == "none" {
+			conditions = append(conditions, fmt.Sprintf("(e.category IS NULL OR e.category = '')"))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("e.category = $%d", next()))
+			args = append(args, f.Category)
+		}
 	}
 	if f.Text != "" {
 		conditions = append(conditions, fmt.Sprintf("e.search_vector @@ plainto_tsquery('english', $%d)", next()))
@@ -307,7 +311,7 @@ func (db *DB) GetEmailByIDForUser(ctx context.Context, emailID, userID uuid.UUID
 		SELECT
 			e.id, e.mailbox_id, e.thread_id, e.address_mapping_id, e.ingestion_id, e.message_id,
 			e.in_reply_to, e."references", e.subject, e.from_address, e.to_address,
-			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.direction, e.status, e.sending_address_id, e.user_id, e.body_plain
+			e.reply_to_address, e.storage_key, e.size, e.receive_datetime, e.is_read, e.is_star, e.direction, e.status, e.sending_address_id, e.user_id, e.body_plain, e.category
 		FROM email e
 		JOIN mailbox_user mu ON e.mailbox_id = mu.mailbox_id
 		WHERE e.id = $1 AND mu.user_id = $2 AND mu.is_active = TRUE

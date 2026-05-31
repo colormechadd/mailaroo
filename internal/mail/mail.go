@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -232,6 +234,14 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 		case *gomail.AttachmentHeader:
 			filename, _ := h.Filename()
 			contentType, _, _ := h.ContentType()
+
+			if contentType == "application/octet-stream" && filename != "" {
+				if ext := filepath.Ext(filename); ext != "" {
+					if detected := mime.TypeByExtension(ext); detected != "" {
+						contentType = detected
+					}
+				}
+			}
 
 			attData, err := io.ReadAll(pPart.Body)
 			if err != nil {

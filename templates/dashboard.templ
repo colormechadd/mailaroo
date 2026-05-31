@@ -514,10 +514,22 @@ templ MailboxContent(mailboxID uuid.UUID, filter string, emails []models.Email, 
 	<div hx-trigger="sse:new-mail" hx-get={ "/mailbox/" + mailboxID.String() + "?filter=" + filter } hx-target="#main-content" class="hidden"></div>
 	<!-- Header -->
 	<header class="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white sticky top-0 z-10">
-		<div class="flex items-center gap-4">
+		<div class="flex items-center gap-3">
 			<h2 class="text-xl font-bold text-gray-900 uppercase tracking-tight">
 				{ mailboxFilterTitle(filter) }
 			</h2>
+			<button
+				type="button"
+				hx-get={ "/mailbox/" + mailboxID.String() + "?filter=" + filter }
+				hx-target="#main-content"
+				class="refresh-btn text-gray-300 hover:text-purple-600 transition-colors cursor-pointer p-1 rounded hover:bg-purple-50"
+				title="Refresh"
+				onclick="htmx.trigger('body', 'updateUnreadCount')"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+				</svg>
+			</button>
 		</div>
 
 		<div class="flex-1 max-w-2xl px-8">

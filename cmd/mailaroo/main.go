@@ -14,6 +14,8 @@ import (
 
 	gosmtp "github.com/emersion/go-smtp"
 
+	_ "github.com/emersion/go-message/charset"
+
 	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/internal/config"
 	"github.com/colormechadd/mailaroo/internal/db"

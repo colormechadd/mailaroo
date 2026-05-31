@@ -17,6 +17,8 @@ templ Layout(title string, csrfToken string) {
   			<script type="text/javascript" src="https://unpkg.com/trix@2.0.8/dist/trix.umd.min.js"></script>
 			<style>
 				[x-cloak] { display: none !important; }
+				.refresh-btn.htmx-request svg { animation: spin 0.8s linear infinite; }
+				@keyframes spin { to { transform: rotate(360deg); } }
 				trix-toolbar [data-trix-button-group="file-tools"] { display: none !important; }
 				trix-editor {
 					min-height: 300px !important;
@@ -69,6 +71,15 @@ templ Layout(title string, csrfToken string) {
 
 				document.addEventListener('DOMContentLoaded', formatLocalTimes);
 				document.addEventListener('htmx:afterSettle', formatLocalTimes);
+
+				document.addEventListener('htmx:afterHistoryRestore', function() {
+					const path = window.location.pathname;
+					const mailboxMatch = path.match(/^\/mailbox\/([0-9a-f-]{36})/);
+					if (mailboxMatch) {
+						htmx.ajax('GET', path + window.location.search, { target: '#main-content', swap: 'innerHTML' });
+					}
+				});
+
 				document.addEventListener('htmx:configRequest', function(evt) {
                     // Ensure the latest token is always pulled from the meta tag
                     evt.detail.headers['X-CSRF-Token'] = document.querySelector('meta[name="csrf-token"]').content;

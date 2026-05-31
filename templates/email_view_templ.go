@@ -586,14 +586,14 @@ func EmailDetail(email *models.Email, attachments []models.EmailAttachment, body
 				return templ_7745c5c3_Err
 			}
 			for _, att := range attachments {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<a href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<a target=\"_new\" href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var35 templ.SafeURL
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL("/attachment/" + att.ID.String()))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 247, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 248, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
@@ -606,7 +606,7 @@ func EmailDetail(email *models.Email, attachments []models.EmailAttachment, body
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(att.Filename)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 256, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 257, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
@@ -619,7 +619,7 @@ func EmailDetail(email *models.Email, attachments []models.EmailAttachment, body
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f KB", float64(att.Size)/1024))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 257, Col: 101}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 258, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -671,7 +671,7 @@ func EmailSenderInfo(email *models.Email, senderContact *models.Contact, senderB
 		var templ_7745c5c3_Var39 string
 		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(getInitials(email.FromAddress))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 270, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 271, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 		if templ_7745c5c3_Err != nil {
@@ -689,7 +689,7 @@ func EmailSenderInfo(email *models.Email, senderContact *models.Contact, senderB
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.ResolveAttributeValue("/mailbox/" + email.MailboxID.String() + "/contacts?id=" + senderContact.ID.String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 275, Col: 101}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 276, Col: 101}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var40)
 			if templ_7745c5c3_Err != nil {
@@ -702,7 +702,7 @@ func EmailSenderInfo(email *models.Email, senderContact *models.Contact, senderB
 			var templ_7745c5c3_Var41 string
 			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(senderContact.DisplayName())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 275, Col: 241}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 276, Col: 241}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
@@ -720,7 +720,7 @@ func EmailSenderInfo(email *models.Email, senderContact *models.Contact, senderB
 			var templ_7745c5c3_Var42 string
 			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(email.FromAddress)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 277, Col: 59}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 278, Col: 59}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 			if templ_7745c5c3_Err != nil {
@@ -738,7 +738,7 @@ func EmailSenderInfo(email *models.Email, senderContact *models.Contact, senderB
 				var templ_7745c5c3_Var43 string
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue("/email/" + email.ID.String() + "/add-contact")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 281, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 282, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var43)
 				if templ_7745c5c3_Err != nil {
@@ -763,7 +763,7 @@ func EmailSenderInfo(email *models.Email, senderContact *models.Contact, senderB
 		var templ_7745c5c3_Var44 string
 		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(email.ToAddress)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 298, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 299, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 		if templ_7745c5c3_Err != nil {
@@ -827,7 +827,7 @@ func EmailListStarButton(emailID uuid.UUID, isStar bool) templ.Component {
 		var templ_7745c5c3_Var48 string
 		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.ResolveAttributeValue("/email/" + emailID.String() + "/star?list=1")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 312, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 313, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var48)
 		if templ_7745c5c3_Err != nil {
@@ -840,7 +840,7 @@ func EmailListStarButton(emailID uuid.UUID, isStar bool) templ.Component {
 		var templ_7745c5c3_Var49 string
 		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.ResolveAttributeValue(starTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 316, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/email_view.templ`, Line: 317, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var49)
 		if templ_7745c5c3_Err != nil {

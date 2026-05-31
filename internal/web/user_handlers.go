@@ -45,8 +45,9 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 		defer closer.Close()
 	}
 
+	slog.Info("content type", att.ContentType)
 	w.Header().Set("Content-Type", att.ContentType)
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": att.Filename}))
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": att.Filename}))
 	io.Copy(w, bodyReader)
 }
 

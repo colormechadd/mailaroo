@@ -13,7 +13,7 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 		if email.IsStar {
 			starTitle = "Unstar"
 		}
-		
+
 		deleteTitle := "Delete"
 		if email.Status == models.StatusDeleted {
 			deleteTitle = "Restore"
@@ -26,8 +26,8 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 					<h1 class="text-2xl font-bold text-gray-900 leading-tight break-words">{ email.Subject }</h1>
 				</div>
 				<div class="flex items-center space-x-4 ml-4">
-					<button 
-						class={ "transition-colors cursor-pointer p-2 rounded-full", 
+					<button
+						class={ "transition-colors cursor-pointer p-2 rounded-full",
 							templ.KV("text-yellow-400 hover:bg-purple-50 hover:text-purple-600", email.IsStar),
 							templ.KV("text-gray-300 hover:bg-purple-50 hover:text-purple-600", !email.IsStar) }
 						hx-post={ "/email/" + email.ID.String() + "/star" }
@@ -39,7 +39,7 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 						</svg>
 					</button>
 
-					<button 
+					<button
 						class="text-gray-300 hover:text-purple-600 transition-colors cursor-pointer p-2 hover:bg-purple-50 rounded-full"
 						hx-post={ "/email/" + email.ID.String() + "/delete" }
 						hx-target="#main-content"
@@ -101,7 +101,7 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 						</button>
 					}
 
-					<button 
+					<button
 						class="text-gray-400 hover:text-purple-600 transition-colors cursor-pointer p-2 hover:bg-purple-50 rounded-full"
 						hx-get={ "/email/" + email.ID.String() + "/headers" }
 						hx-target="#main-content"
@@ -113,7 +113,7 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 						</svg>
 					</button>
 
-					<button 
+					<button
 						class="text-gray-400 hover:text-purple-600 transition-colors cursor-pointer p-2 hover:bg-purple-50 rounded-full"
 						hx-get={ "/email/" + email.ID.String() + "/pipeline" }
 						hx-target="#main-content"
@@ -132,7 +132,7 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 					</button>
 				</div>
 			</div>
-			
+
 			<div class="flex items-start justify-between">
 				<div class="flex-1">
 					@EmailSenderInfo(email, senderContact, senderBlocked)
@@ -243,7 +243,8 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 				<h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Attachments ({ fmt.Sprintf("%d", len(attachments)) })</h3>
 				<div class="flex flex-wrap gap-3">
 					for _, att := range attachments {
-						<a 
+						<a
+                            target="_new"
 							href={ templ.URL("/attachment/" + att.ID.String()) }
 							class="flex items-center px-4 py-3 bg-white border border-purple-100 rounded-xl hover:border-teal-400 hover:shadow-md transition-all group"
 						>

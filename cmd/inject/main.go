@@ -6,12 +6,16 @@
 //	go run ./cmd/inject *.eml
 //	go run ./cmd/inject --from sender@example.com --to rcpt@yourdomain.com email.eml
 //	go run ./cmd/inject --host localhost --port 2525 email.eml
+//	go run ./cmd/inject --mbox mailbox.mbox
 //
 // The script reads From/To from email headers automatically if not overridden.
 // The recipient must match a mailbox address mapping in the database.
+// Mbox files are auto-detected when the first line starts with "From ";
+// use --mbox to force mbox parsing for files with a different extension.
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -26,12 +30,18 @@ import (
 
 const workers = 5
 
+type job struct {
+	raw   []byte
+	label string
+}
+
 func main() {
 	from := flag.String("from", "", "Override MAIL FROM address")
 	to := flag.String("to", "", "Override RCPT TO address (comma-separated)")
 	host := flag.String("host", "localhost", "SMTP host")
 	port := flag.String("port", "2525", "SMTP port")
 	dryRun := flag.Bool("dry-run", false, "Parse and display without sending")
+	mboxFlag := flag.Bool("mbox", false, "Parse files as mbox format")
 	flag.Parse()
 
 	files := flag.Args()
@@ -45,14 +55,14 @@ func main() {
 		ok       atomic.Int64
 		errCount atomic.Int64
 		wg       sync.WaitGroup
-		jobs     = make(chan string, len(files))
+		jobs     = make(chan job, len(files))
 	)
 
 	for range workers {
 		wg.Go(func() {
-			for path := range jobs {
-				fmt.Printf("\n%s\n", path)
-				if err := inject(path, *from, *to, *host, *port, *dryRun); err != nil {
+			for j := range jobs {
+				fmt.Printf("\n%s\n", j.label)
+				if err := injectRaw(j.raw, *from, *to, *host, *port, *dryRun); err != nil {
 					fmt.Printf("  ERROR: %v\n", err)
 					errCount.Add(1)
 				} else {
@@ -63,7 +73,27 @@ func main() {
 	}
 
 	for _, path := range files {
-		jobs <- path
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+			errCount.Add(1)
+			continue
+		}
+
+		isMbox := *mboxFlag || strings.HasSuffix(path, ".mbox") || isMboxContent(raw)
+		if isMbox {
+			msgs := splitMbox(raw)
+			if len(msgs) == 0 {
+				fmt.Fprintf(os.Stderr, "no messages found in %s\n", path)
+				errCount.Add(1)
+				continue
+			}
+			for i, msg := range msgs {
+				jobs <- job{raw: msg, label: fmt.Sprintf("%s [message %d/%d]", path, i+1, len(msgs))}
+			}
+		} else {
+			jobs <- job{raw: raw, label: path}
+		}
 	}
 	close(jobs)
 	wg.Wait()
@@ -74,12 +104,7 @@ func main() {
 	}
 }
 
-func inject(path, fromFlag, toFlag, host, port string, dryRun bool) error {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
+func injectRaw(raw []byte, fromFlag, toFlag, host, port string, dryRun bool) error {
 	msg, err := mail.ReadMessage(strings.NewReader(string(raw)))
 	if err != nil {
 		return fmt.Errorf("parse failed: %w", err)
@@ -133,7 +158,6 @@ func inject(path, fromFlag, toFlag, host, port string, dryRun bool) error {
 	}
 	defer c.Close()
 
-	// Use STARTTLS if advertised, but skip certificate verification (dev server).
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err := c.StartTLS(&tls.Config{InsecureSkipVerify: true}); err != nil { //nolint:gosec
 			return fmt.Errorf("starttls: %w", err)
@@ -164,4 +188,49 @@ func inject(path, fromFlag, toFlag, host, port string, dryRun bool) error {
 
 	fmt.Println("  OK")
 	return nil
+}
+
+// isMboxContent reports whether data starts with the mbox "From " delimiter.
+func isMboxContent(data []byte) bool {
+	return bytes.HasPrefix(data, []byte("From "))
+}
+
+// splitMbox splits mbox formatted data into individual RFC 2822 messages.
+// It handles the mboxrd format where ">From " at the start of a line is
+// an escaped "From ".
+func splitMbox(data []byte) [][]byte {
+	lines := bytes.Split(data, []byte("\n"))
+
+	var msgs [][]byte
+	var start int
+	for i, line := range lines {
+		if bytes.HasPrefix(line, []byte("From ")) && i > start {
+			msgs = append(msgs, extractMessage(lines[start+1:i]))
+			start = i
+		}
+	}
+	if start < len(lines) {
+		msgs = append(msgs, extractMessage(lines[start+1:]))
+	}
+
+	// Remove trailing empty messages.
+	for len(msgs) > 0 && len(bytes.TrimSpace(msgs[len(msgs)-1])) == 0 {
+		msgs = msgs[:len(msgs)-1]
+	}
+
+	return msgs
+}
+
+// extractMessage joins lines and unescapes mboxrd ">From " -> "From ".
+func extractMessage(lines [][]byte) []byte {
+	var buf bytes.Buffer
+	for _, line := range lines {
+		if bytes.HasPrefix(line, []byte(">From ")) {
+			buf.Write(line[1:])
+		} else {
+			buf.Write(line)
+		}
+		buf.WriteByte('\n')
+	}
+	return buf.Bytes()
 }
