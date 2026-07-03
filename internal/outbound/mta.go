@@ -42,12 +42,13 @@ type Sender interface {
 }
 
 type MTA struct {
-	hostname string
-	relay    string // optional smarthost "host:port"; if set, skip MX lookup
-	dkim     *DKIMSigner
+	hostname   string
+	relay      string // optional smarthost "host:port"; if set, skip MX lookup
+	dkim       *DKIMSigner
+	requireTLS bool
 }
 
-func NewMTA(hostname string, relay string, dkim *DKIMSigner) *MTA {
+func NewMTA(hostname string, relay string, dkim *DKIMSigner, requireTLS bool) *MTA {
 	if hostname == "" {
 		hostname = "localhost"
 	}
@@ -57,7 +58,7 @@ func NewMTA(hostname string, relay string, dkim *DKIMSigner) *MTA {
 	} else {
 		slog.Debug("Using MTA host", "host", hostname)
 	}
-	return &MTA{hostname: hostname, relay: relay, dkim: dkim}
+	return &MTA{hostname: hostname, relay: relay, dkim: dkim, requireTLS: requireTLS}
 }
 
 func (m *MTA) BuildMessage(msg Message) (rawBytes []byte, from string, recipients []string, err error) {
@@ -264,8 +265,13 @@ func (m *MTA) deliverToRelay(address string, from string, to []string, msg []byt
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		config := &tls.Config{ServerName: host}
 		if err := c.StartTLS(config); err != nil {
+			if m.requireTLS {
+				return "", fmt.Errorf("relay starttls failed and TLS is required: %w", err)
+			}
 			slog.Error("relay starttls failed, delivering in plaintext", "relay", address, "error", err)
 		}
+	} else if m.requireTLS {
+		return "", fmt.Errorf("relay does not support STARTTLS and TLS is required")
 	}
 
 	if err := c.Mail(from); err != nil {
@@ -320,8 +326,17 @@ func (m *MTA) deliverToDomain(domain string, from string, to []string, msg []byt
 		if ok, _ := c.Extension("STARTTLS"); ok {
 			config := &tls.Config{ServerName: mx.Host}
 			if err := c.StartTLS(config); err != nil {
+				if m.requireTLS {
+					slog.Error("starttls failed, skipping MX", "mx", mx.Host, "error", err)
+					lastErr = err
+					continue
+				}
 				slog.Error("starttls failed, delivering in plaintext", "mx", mx.Host, "error", err)
 			}
+		} else if m.requireTLS {
+			slog.Error("mx does not support STARTTLS, skipping", "mx", mx.Host)
+			lastErr = fmt.Errorf("MX %s does not support STARTTLS and TLS is required", mx.Host)
+			continue
 		}
 
 		if err := c.Mail(from); err != nil {

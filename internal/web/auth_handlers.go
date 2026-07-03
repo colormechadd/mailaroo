@@ -131,6 +131,18 @@ func (s *Server) handleForgotPasswordGet(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleForgotPasswordPost(w http.ResponseWriter, r *http.Request) {
+	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if remoteIP == "" {
+		remoteIP = r.RemoteAddr
+	}
+
+	limiter := s.forgotPasswordLimiter(remoteIP)
+	if !limiter.Allow() {
+		slog.Warn("forgot password rate limited", "ip", remoteIP)
+		http.Error(w, "Too many password reset requests, please try again later", http.StatusTooManyRequests)
+		return
+	}
+
 	username := strings.TrimSpace(r.FormValue("username"))
 
 	user, err := s.DB.GetUserByUsername(r.Context(), username)
@@ -185,6 +197,18 @@ func (s *Server) handleResetPasswordGet(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleResetPasswordPost(w http.ResponseWriter, r *http.Request) {
+	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if remoteIP == "" {
+		remoteIP = r.RemoteAddr
+	}
+
+	limiter := s.resetPasswordLimiter(remoteIP)
+	if !limiter.Allow() {
+		slog.Warn("reset password rate limited", "ip", remoteIP)
+		http.Error(w, "Too many reset attempts, please try again later", http.StatusTooManyRequests)
+		return
+	}
+
 	token := r.FormValue("token")
 	password := r.FormValue("password")
 	confirm := r.FormValue("confirm_password")

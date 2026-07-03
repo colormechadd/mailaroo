@@ -26,6 +26,10 @@ type Server struct {
 
 	loginMu           sync.Mutex
 	loginLimiters     map[string]*loginEntry
+	forgotMu          sync.Mutex
+	forgotLimiters    map[string]*loginEntry
+	resetMu           sync.Mutex
+	resetLimiters     map[string]*loginEntry
 	totpSetupMu       sync.Mutex
 	pendingTOTPSetups map[uuid.UUID]pendingTOTPSetup
 	proxyKey          []byte
@@ -59,9 +63,13 @@ func NewServer(cfg ServerConfig) *Server {
 	s := &Server{
 		ServerConfig:      cfg,
 		loginLimiters:     make(map[string]*loginEntry),
+		forgotLimiters:    make(map[string]*loginEntry),
+		resetLimiters:     make(map[string]*loginEntry),
 		pendingTOTPSetups: make(map[uuid.UUID]pendingTOTPSetup),
 	}
 	go s.cleanupLoginLimiters()
+	go s.cleanupForgotLimiters()
+	go s.cleanupResetLimiters()
 	go s.cleanupPendingTOTPSetups()
 	return s
 }
@@ -130,6 +138,62 @@ func (s *Server) cleanupLoginLimiters() {
 			}
 		}
 		s.loginMu.Unlock()
+	}
+}
+
+func (s *Server) forgotPasswordLimiter(ip string) *rate.Limiter {
+	s.forgotMu.Lock()
+	defer s.forgotMu.Unlock()
+	if e, ok := s.forgotLimiters[ip]; ok {
+		e.lastSeen = time.Now()
+		return e.limiter
+	}
+	e := &loginEntry{
+		limiter:  rate.NewLimiter(rate.Every(time.Minute), 5),
+		lastSeen: time.Now(),
+	}
+	s.forgotLimiters[ip] = e
+	return e.limiter
+}
+
+func (s *Server) resetPasswordLimiter(ip string) *rate.Limiter {
+	s.resetMu.Lock()
+	defer s.resetMu.Unlock()
+	if e, ok := s.resetLimiters[ip]; ok {
+		e.lastSeen = time.Now()
+		return e.limiter
+	}
+	e := &loginEntry{
+		limiter:  rate.NewLimiter(rate.Every(time.Minute), 5),
+		lastSeen: time.Now(),
+	}
+	s.resetLimiters[ip] = e
+	return e.limiter
+}
+
+func (s *Server) cleanupForgotLimiters() {
+	for {
+		time.Sleep(5 * time.Minute)
+		s.forgotMu.Lock()
+		for ip, e := range s.forgotLimiters {
+			if time.Since(e.lastSeen) > time.Hour {
+				delete(s.forgotLimiters, ip)
+			}
+		}
+		s.forgotMu.Unlock()
+	}
+}
+
+func (s *Server) cleanupResetLimiters() {
+	for {
+		time.Sleep(5 * time.Minute)
+		s.resetMu.Lock()
+		for ip, e := range s.resetLimiters {
+			if time.Since(e.lastSeen) > time.Hour {
+				delete(s.resetLimiters, ip)
+			}
+		}
+		s.resetMu.Unlock()
 	}
 }
 

@@ -232,15 +232,16 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 
 	files := r.MultipartForm.File["attachments"]
 	for _, fileHeader := range files {
-		f, err := fileHeader.Open()
+		vf, err := validateAttachment(fileHeader)
 		if err != nil {
-			slog.Error("failed to open attachment", "filename", fileHeader.Filename, "error", err)
-			continue
+			slog.Warn("attachment rejected", "filename", fileHeader.Filename, "error", err)
+			http.Error(w, fmt.Sprintf("Attachment %q rejected: %s", fileHeader.Filename, err.Error()), http.StatusBadRequest)
+			return
 		}
 		outMsg.Attachments = append(outMsg.Attachments, outbound.Attachment{
-			Filename:    fileHeader.Filename,
-			ContentType: fileHeader.Header.Get("Content-Type"),
-			Content:     f,
+			Filename:    vf.header.Filename,
+			ContentType: vf.detectedMIME,
+			Content:     vf.content,
 		})
 	}
 

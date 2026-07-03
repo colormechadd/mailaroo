@@ -141,7 +141,7 @@ func runServe() {
 		dkimSigner = outbound.NewDKIMSigner(database, encKey)
 		dkimEncKey = encKey
 	}
-	mta := outbound.NewMTA(cfg.SMTP.Domain, cfg.SMTP.Relay, dkimSigner)
+	mta := outbound.NewMTA(cfg.SMTP.Domain, cfg.SMTP.Relay, dkimSigner, cfg.SMTP.RequireTLS)
 
 	smtpServers, err := smtp.CreateServers(cfg.SMTP, cfg.RateLimit, database, database, ingestionPipeline)
 	if err != nil {

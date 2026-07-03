@@ -19,6 +19,7 @@ type SMTPConfig struct {
 	WriteTimeout   time.Duration `mapstructure:"WRITE_TIMEOUT"`
 	MaxMessageSize int64         `mapstructure:"MAX_MESSAGE_SIZE"`
 	MaxRecipients  int           `mapstructure:"MAX_RECIPIENTS"`
+	RequireTLS     bool          `mapstructure:"REQUIRE_TLS"`
 }
 
 type LocalStorageConfig struct {
@@ -111,6 +112,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("SMTP.WRITE_TIMEOUT", 10*time.Second)
 	viper.SetDefault("SMTP.MAX_MESSAGE_SIZE", 1024*1024*50) // 50MB
 	viper.SetDefault("SMTP.MAX_RECIPIENTS", 50)
+	viper.SetDefault("SMTP.REQUIRE_TLS", false)
 
 	viper.SetDefault("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE", 10)
 	viper.SetDefault("RATE_LIMIT.SMTP_AUTO_BLOCK_THRESHOLD", 30)
@@ -251,6 +253,9 @@ func BindFlags(fs *pflag.FlagSet) {
 
 	fs.String("smtp-relay", "", "Optional smarthost relay for outbound mail (e.g. localhost:1025)")
 	viper.BindPFlag("SMTP.RELAY", fs.Lookup("smtp-relay"))
+
+	fs.Bool("smtp-require-tls", false, "Require TLS for outbound SMTP delivery (fail if STARTTLS is unavailable or fails)")
+	viper.BindPFlag("SMTP.REQUIRE_TLS", fs.Lookup("smtp-require-tls"))
 
 	fs.Int("rate-limit-smtp-connections-per-minute", 10, "Max inbound SMTP connections per IP per minute")
 	viper.BindPFlag("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE", fs.Lookup("rate-limit-smtp-connections-per-minute"))
