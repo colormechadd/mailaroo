@@ -337,19 +337,15 @@ templ AdminDashboard(user *models.User, content templ.Component, csrfToken strin
 			<!-- Admin Sidebar -->
 			<aside
 				class="w-64 flex-shrink-0 bg-white border-r border-purple-100 flex flex-col"
-				x-data="{ section: '' }"
-				x-init="
-					const update = () => {
-						const p = window.location.pathname;
-						if (p.startsWith('/admin/users')) section = 'users';
-						else if (p.startsWith('/admin/mailboxes')) section = 'mailboxes';
-						else if (p.startsWith('/admin/sending-addresses')) section = 'sending-addresses';
-						else if (p.startsWith('/admin/domains')) section = 'domains';
-						else section = '';
-					};
-					update();
-					document.addEventListener('htmx:afterSettle', update);
-				"
+				x-data="{
+					path: window.location.pathname,
+					init() {
+						this.updateActive = () => { this.path = window.location.pathname };
+						this.updateActive();
+						document.addEventListener('htmx:afterSettle', this.updateActive);
+						window.addEventListener('popstate', this.updateActive);
+					}
+				}"
 			>
 				<div class="p-6">
 					<div class="flex items-center gap-3 mb-8">
@@ -361,16 +357,16 @@ templ AdminDashboard(user *models.User, content templ.Component, csrfToken strin
 					</div>
 				</div>
 				<nav class="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-hide">
-					@adminNavItem("/admin/users", "users", "Users") {
+					@adminNavItem("/admin/users", "Users") {
 						@IconContacts()
 					}
-					@adminNavItem("/admin/mailboxes", "mailboxes", "Mailboxes") {
+					@adminNavItem("/admin/mailboxes", "Mailboxes") {
 						@IconInbox()
 					}
-					@adminNavItem("/admin/sending-addresses", "sending-addresses", "Sending Addresses") {
+					@adminNavItem("/admin/sending-addresses", "Sending Addresses") {
 						@IconSent()
 					}
-					@adminNavItem("/admin/domains", "domains", "Domains") {
+					@adminNavItem("/admin/domains", "Domains") {
 						@IconShield()
 					}
 				</nav>
@@ -417,7 +413,7 @@ templ AdminDashboard(user *models.User, content templ.Component, csrfToken strin
 	}
 }
 
-templ adminNavItem(href string, sectionName string, label string) {
+templ adminNavItem(href string, label string) {
 	<a
 		href={ templ.URL(href) }
 		hx-get={ href }
@@ -425,11 +421,11 @@ templ adminNavItem(href string, sectionName string, label string) {
 		hx-push-url="true"
 		hx-swap="innerHTML"
 		class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
-		:class={ fmt.Sprintf("section === '%s' ? 'bg-purple-100 text-purple-900' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50/50'", sectionName) }
+		:class={ fmt.Sprintf("path.startsWith('%s') ? 'bg-purple-100 text-purple-900' : 'text-gray-500 hover:text-purple-600 hover:bg-purple-50/50'", href) }
 	>
 		<div
 			class="h-5 w-5"
-			:class={ fmt.Sprintf("section === '%s' ? 'text-purple-600' : 'text-gray-400'", sectionName) }
+			:class={ fmt.Sprintf("path.startsWith('%s') ? 'text-purple-600' : 'text-gray-400'", href) }
 		>
 			{ children... }
 		</div>

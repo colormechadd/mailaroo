@@ -1,0 +1,52 @@
+# DKIM signing domains (generates keys on first run)
+domains:
+  - domain: example.com
+    selector: mailaroo
+
+# User accounts (flat list, no mailbox config here)
+users:
+  - username: admin
+    password: changeme
+    is_admin: true
+  - username: alice
+    password: alice-secret
+  - username: catchall
+    password: catchall-pw
+
+# Mailboxes with user assignments and routing
+mailboxes:
+  - name: Inbox
+    users:
+      - admin
+      - alice
+    address_mappings:
+      - pattern: admin@example.com
+        priority: 10
+      - pattern: ^alice@example\.com$
+        priority: 10
+    sending_addresses:
+      - user: admin
+        address: admin@example.com
+        display_name: Admin User
+      - user: alice
+        address: alice@example.com
+        display_name: Alice Smith
+      - user: alice
+        address: alice+shop@example.com
+
+  - name: Projects
+    users:
+      - alice
+    address_mappings:
+      - pattern: ^alice\+github@example\.com$
+        priority: 20
+    sending_addresses:
+      - user: alice
+        address: alice+github@example.com
+
+  - name: CatchAll
+    users:
+      - catchall
+    address_mappings:
+      - pattern: ^.*@example\.com$
+        priority: 100

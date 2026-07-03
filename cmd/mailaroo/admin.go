@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/colormechadd/mailaroo/internal/db"
 	"github.com/colormechadd/mailaroo/pkg/auth"
@@ -49,6 +51,8 @@ func init() {
 	sendingAddressCmd.AddCommand(saAddCmd)
 	sendingAddressCmd.AddCommand(saListCmd)
 	sendingAddressCmd.AddCommand(saDeactivateCmd)
+
+	adminCmd.AddCommand(initialConfigCmd)
 
 	userAddCmd.Flags().Bool("admin", false, "Grant admin privileges to the user")
 }
@@ -323,5 +327,35 @@ var saDeactivateCmd = &cobra.Command{
 		}
 
 		cmd.Printf("Sending address %s deactivated\n", saID)
+	},
+}
+
+var initialConfigCmd = &cobra.Command{
+	Use:   "initial-config [file]",
+	Short: "Bootstrap users, mailboxes, and domains from a YAML file",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		initLogger(cfg)
+		runMigrations()
+
+		database, err := db.Connect(cfg.DatabaseURL)
+		if err != nil {
+			log.Fatalf("failed to connect to database: %v", err)
+		}
+		defer database.Close()
+
+		var dkimEncKey []byte
+		if cfg.DKIM.EncryptionKey != "" {
+			dkimEncKey, err = base64.StdEncoding.DecodeString(cfg.DKIM.EncryptionKey)
+			if err != nil || len(dkimEncKey) != 32 {
+				log.Fatalf("MAILAROO_DKIM_ENCRYPTION_KEY must be a base64-encoded 32-byte value")
+			}
+		}
+
+		if err := bootstrapFromConfig(context.Background(), database, args[0], dkimEncKey); err != nil {
+			slog.Error("bootstrap failed", "error", err)
+			log.Fatalf("bootstrap failed: %v", err)
+		}
+		cmd.Println("Initial configuration applied successfully")
 	},
 }
