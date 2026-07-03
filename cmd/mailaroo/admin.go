@@ -49,6 +49,8 @@ func init() {
 	sendingAddressCmd.AddCommand(saAddCmd)
 	sendingAddressCmd.AddCommand(saListCmd)
 	sendingAddressCmd.AddCommand(saDeactivateCmd)
+
+	userAddCmd.Flags().Bool("admin", false, "Grant admin privileges to the user")
 }
 
 var userAddCmd = &cobra.Command{
@@ -67,14 +69,17 @@ var userAddCmd = &cobra.Command{
 			log.Fatalf("failed to hash password: %v", err)
 		}
 
+		isAdmin, _ := cmd.Flags().GetBool("admin")
+
 		user := &models.User{
 			ID:           uuid.New(),
 			Username:     args[0],
 			PasswordHash: hash,
 			IsActive:     true,
+			IsAdmin:      isAdmin,
 		}
 
-		if err := database.CreateUser(context.Background(), user); err != nil {
+		if err := database.CreateUserNoMailbox(context.Background(), user); err != nil {
 			log.Fatalf("failed to create user: %v", err)
 		}
 
@@ -97,10 +102,10 @@ var userListCmd = &cobra.Command{
 			log.Fatalf("failed to list users: %v", err)
 		}
 
-		cmd.Printf("%-36s | %-20s | %-6s\n", "ID", "Username", "Active")
-		cmd.Println("----------------------------------------------------------------------")
+		cmd.Printf("%-36s | %-20s | %-6s | %-5s\n", "ID", "Username", "Active", "Admin")
+		cmd.Println("-----------------------------------------------------------------------------")
 		for _, u := range users {
-			cmd.Printf("%-36s | %-20s | %-6v\n", u.ID, u.Username, u.IsActive)
+			cmd.Printf("%-36s | %-20s | %-6v | %-5v\n", u.ID, u.Username, u.IsActive, u.IsAdmin)
 		}
 	},
 }

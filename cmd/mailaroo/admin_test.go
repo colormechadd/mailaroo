@@ -97,8 +97,22 @@ func TestAdminUserCommands(t *testing.T) {
 		user, err := database.GetUserByUsername(ctx, "clitest")
 		assert.NoError(t, err)
 		assert.Equal(t, "clitest", user.Username)
+		assert.False(t, user.IsAdmin)
 
 		match, _ := auth.ComparePassword("password123", user.PasswordHash)
+		assert.True(t, match)
+	})
+
+	t.Run("user add --admin", func(t *testing.T) {
+		output, err := executeCommand("admin", "user", "add", "--admin", "adminuser", "adminpass")
+		assert.NoError(t, err)
+		assert.Contains(t, output, "User adminuser created")
+
+		user, err := database.GetUserByUsername(ctx, "adminuser")
+		assert.NoError(t, err)
+		assert.True(t, user.IsAdmin)
+
+		match, _ := auth.ComparePassword("adminpass", user.PasswordHash)
 		assert.True(t, match)
 	})
 

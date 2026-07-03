@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -32,11 +33,21 @@ import (
 )
 
 var (
-	cfg *config.Config
+	cfg            *config.Config
+	skipMigrations bool
 )
+
+var migrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Run database migrations",
+	Run: func(cmd *cobra.Command, args []string) {
+		runMigrations()
+	},
+}
 
 func init() {
 	config.BindFlags(rootCmd.PersistentFlags())
+	rootCmd.PersistentFlags().Bool("skip-migrations", false, "Skip running migrations on startup")
 
 	// Hide config flags from the brief usage shown on errors.
 	config.HideFlags(rootCmd.PersistentFlags())
@@ -47,6 +58,8 @@ func init() {
 		config.UnhideFlags(cmd.PersistentFlags())
 		defaultHelp(cmd, args)
 	})
+
+	rootCmd.AddCommand(migrateCmd)
 }
 
 var rootCmd = &cobra.Command{
@@ -59,6 +72,7 @@ var rootCmd = &cobra.Command{
 			slog.Error("failed to load configuration", "error", err)
 			os.Exit(1)
 		}
+		skipMigrations, _ = cmd.Root().PersistentFlags().GetBool("skip-migrations")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// Default behavior is to start the server
@@ -87,6 +101,10 @@ func runServe() {
 		os.Exit(1)
 	}
 	defer database.Close()
+
+	if !skipMigrations {
+		runMigrations()
+	}
 
 	var store storage.Storage
 	switch cfg.StorageType {
@@ -284,4 +302,16 @@ func initLogger(cfg *config.Config) {
 
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
+}
+
+func runMigrations() {
+	slog.Info("Running database migrations...")
+	cmd := exec.Command("dbmate", "-u", cfg.DatabaseURL, "--no-dump-schema", "up")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		slog.Error("database migration failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Database migrations completed")
 }
