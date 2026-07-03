@@ -19,7 +19,6 @@ RUN go mod download
 COPY . .
 
 # Generate assets and build
-RUN go generate ./...
 RUN CGO_ENABLED=0 go build -o mailaroo cmd/mailaroo/*.go
 
 # Create non-root user for runtime
