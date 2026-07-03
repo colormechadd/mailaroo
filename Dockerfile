@@ -10,6 +10,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Install dbmate
+RUN go install github.com/amacneil/dbmate@latest
+
 # Generate assets and build
 RUN CGO_ENABLED=0 go build -o mailaroo cmd/mailaroo/*.go
 
@@ -27,6 +30,7 @@ WORKDIR /app
 
 # Copy binary and assets
 COPY --from=builder --chown=mailaroo:mailaroo /app/mailaroo .
+COPY --from=builder --chown=mailaroo:mailaroo /go/bin/dbmate /usr/local/bin/dbmate
 COPY --from=builder --chown=mailaroo:mailaroo /app/static ./static
 COPY --from=builder --chown=mailaroo:mailaroo /app/db/migrations ./db/migrations
 
