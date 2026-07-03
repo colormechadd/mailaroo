@@ -38,6 +38,7 @@ type AdminDB interface {
 	ListAllSendingAddresses(ctx context.Context) ([]models.SendingAddressWithUser, error)
 	GetAddressMappingsByMailboxID(ctx context.Context, mailboxID uuid.UUID) ([]models.AddressMapping, error)
 	GetMailboxByID(ctx context.Context, mailboxID uuid.UUID) (*models.Mailbox, error)
+	UpdateUserRecoveryEmail(ctx context.Context, userID uuid.UUID, email string) error
 }
 
 func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
@@ -47,7 +48,7 @@ func (db *DB) CreateUser(ctx context.Context, user *models.User) error {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, is_active, is_admin) VALUES ($1, $2, $3, $4, $5)`, user.ID, user.Username, user.PasswordHash, user.IsActive, user.IsAdmin)
+	_, err = tx.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, recovery_email, is_active, is_admin) VALUES ($1, $2, $3, $4, $5, $6)`, user.ID, user.Username, user.PasswordHash, user.RecoveryEmail, user.IsActive, user.IsAdmin)
 	if err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ func (db *DB) CreateAddressMapping(ctx context.Context, am *models.AddressMappin
 
 func (db *DB) ListUsers(ctx context.Context) ([]models.User, error) {
 	var users []models.User
-	err := db.SelectContext(ctx, &users, `SELECT id, username, password_hash, is_active, is_admin FROM "user" ORDER BY username ASC`)
+	err := db.SelectContext(ctx, &users, `SELECT id, username, password_hash, recovery_email, is_active, is_admin FROM "user" ORDER BY username ASC`)
 	return users, err
 }
 
@@ -155,7 +156,7 @@ func (db *DB) ReactivateSendingAddress(ctx context.Context, saID uuid.UUID) erro
 }
 
 func (db *DB) CreateUserNoMailbox(ctx context.Context, user *models.User) error {
-	_, err := db.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, is_active, is_admin) VALUES ($1, $2, $3, $4, $5)`, user.ID, user.Username, user.PasswordHash, user.IsActive, user.IsAdmin)
+	_, err := db.ExecContext(ctx, `INSERT INTO "user" (id, username, password_hash, recovery_email, is_active, is_admin) VALUES ($1, $2, $3, $4, $5, $6)`, user.ID, user.Username, user.PasswordHash, user.RecoveryEmail, user.IsActive, user.IsAdmin)
 	return err
 }
 
@@ -174,7 +175,7 @@ func (db *DB) ListSendingAddressesByMailboxID(ctx context.Context, mailboxID uui
 
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE username = $1`, username)
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE username = $1`, username)
 	return &user, err
 }
 
@@ -266,5 +267,10 @@ func (db *DB) GetMailboxByID(ctx context.Context, mailboxID uuid.UUID) (*models.
 		return nil, err
 	}
 	return &mb, nil
+}
+
+func (db *DB) UpdateUserRecoveryEmail(ctx context.Context, userID uuid.UUID, email string) error {
+	_, err := db.ExecContext(ctx, `UPDATE "user" SET recovery_email = $2, update_datetime = NOW() WHERE id = $1`, userID, email)
+	return err
 }
 

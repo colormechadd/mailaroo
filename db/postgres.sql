@@ -353,6 +353,19 @@ CREATE TABLE public.outbound_job_attempt (
 
 
 --
+-- Name: password_reset; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.password_reset (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    user_id uuid NOT NULL,
+    token text NOT NULL,
+    expires_datetime timestamp with time zone NOT NULL,
+    create_datetime timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -416,7 +429,8 @@ CREATE TABLE public."user" (
     is_admin boolean DEFAULT false NOT NULL,
     totp_enabled boolean DEFAULT false NOT NULL,
     totp_secret text,
-    totp_backup_codes text[] DEFAULT '{}'::text[] NOT NULL
+    totp_backup_codes text[] DEFAULT '{}'::text[] NOT NULL,
+    recovery_email text DEFAULT ''::text NOT NULL
 );
 
 
@@ -593,6 +607,22 @@ ALTER TABLE ONLY public.outbound_job_attempt
 
 ALTER TABLE ONLY public.outbound_job
     ADD CONSTRAINT outbound_job_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: password_reset password_reset_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset
+    ADD CONSTRAINT password_reset_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: password_reset password_reset_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset
+    ADD CONSTRAINT password_reset_token_key UNIQUE (token);
 
 
 --
@@ -886,6 +916,13 @@ CREATE INDEX idx_outbound_job_status_next ON public.outbound_job USING btree (st
 
 
 --
+-- Name: idx_password_reset_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_password_reset_token ON public.password_reset USING btree (token);
+
+
+--
 -- Name: idx_sending_address_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1091,6 +1128,14 @@ ALTER TABLE ONLY public.outbound_job
 
 
 --
+-- Name: password_reset password_reset_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset
+    ADD CONSTRAINT password_reset_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user"(id) ON DELETE CASCADE;
+
+
+--
 -- Name: sending_address sending_address_mailbox_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1147,4 +1192,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260510000001'),
     ('20260523000000'),
     ('20260524000001'),
-    ('20260530000001');
+    ('20260530000001'),
+    ('20260703000000'),
+    ('20260703000001');

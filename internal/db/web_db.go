@@ -27,6 +27,8 @@ type WebDB interface {
 	CreateWebmailSession(ctx context.Context, userID uuid.UUID, token string, remoteIP, userAgent string, expires time.Time) error
 	GetWebmailSession(ctx context.Context, token string) (*models.WebmailSession, error)
 	ExpireWebmailSession(ctx context.Context, token string) error
+	ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]models.WebmailSession, error)
+	ExpireWebmailSessionByID(ctx context.Context, sessionID uuid.UUID) error
 	GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetMailboxesByUserID(ctx context.Context, userID uuid.UUID) ([]models.Mailbox, error)
 	SearchEmails(ctx context.Context, mailboxID, userID uuid.UUID, f EmailFilter, limit int, cursorTime *time.Time, cursorID *uuid.UUID) ([]models.Email, error)
@@ -88,6 +90,12 @@ type WebDB interface {
 	DeleteFilterRule(ctx context.Context, ruleID, mailboxID uuid.UUID) error
 	ReorderFilterRules(ctx context.Context, mailboxID uuid.UUID, orderedIDs []uuid.UUID) error
 
+	CreatePasswordReset(ctx context.Context, userID uuid.UUID, token string, expires time.Time) error
+	GetPasswordResetByToken(ctx context.Context, token string) (*models.PasswordReset, error)
+	DeletePasswordReset(ctx context.Context, token string) error
+	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
+
+	UpdateUserRecoveryEmail(ctx context.Context, userID uuid.UUID, email string) error
 	CreateTOTPPending(ctx context.Context, userID uuid.UUID, token string, expires time.Time) error
 	GetTOTPPendingByToken(ctx context.Context, token string) (*models.TOTPPending, error)
 	DeleteTOTPPending(ctx context.Context, token string) error
@@ -107,7 +115,7 @@ func (db *DB) CreateWebmailSession(ctx context.Context, userID uuid.UUID, token 
 
 func (db *DB) GetWebmailSession(ctx context.Context, token string) (*models.WebmailSession, error) {
 	var session models.WebmailSession
-	err := db.GetContext(ctx, &session, `SELECT id, user_id, token, remote_ip, user_agent, expires_datetime FROM webmail_session WHERE token = $1`, token)
+	err := db.GetContext(ctx, &session, `SELECT id, user_id, token, remote_ip, user_agent, expires_datetime, create_datetime FROM webmail_session WHERE token = $1`, token)
 	return &session, err
 }
 
@@ -116,9 +124,25 @@ func (db *DB) ExpireWebmailSession(ctx context.Context, token string) error {
 	return err
 }
 
+func (db *DB) ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]models.WebmailSession, error) {
+	var sessions []models.WebmailSession
+	err := db.SelectContext(ctx, &sessions, `
+		SELECT id, user_id, token, remote_ip, user_agent, expires_datetime, create_datetime
+		FROM webmail_session
+		WHERE user_id = $1 AND expires_datetime > CURRENT_TIMESTAMP
+		ORDER BY create_datetime DESC
+	`, userID)
+	return sessions, err
+}
+
+func (db *DB) ExpireWebmailSessionByID(ctx context.Context, sessionID uuid.UUID) error {
+	_, err := db.ExecContext(ctx, `UPDATE webmail_session SET expires_datetime = CURRENT_TIMESTAMP WHERE id = $1`, sessionID)
+	return err
+}
+
 func (db *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE id = $1`, id)
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE id = $1`, id)
 	return &user, err
 }
 
@@ -453,7 +477,7 @@ func (db *DB) UpdateSendingAddressDisplayName(ctx context.Context, id, userID uu
 func (db *DB) GetMailboxUsers(ctx context.Context, mailboxID uuid.UUID) ([]models.User, error) {
 	var users []models.User
 	err := db.SelectContext(ctx, &users, `
-		SELECT u.id, u.username, u.password_hash, u.is_active, u.is_admin
+		SELECT u.id, u.username, u.password_hash, u.recovery_email, u.is_active, u.is_admin
 		FROM "user" u
 		JOIN mailbox_user mu ON mu.user_id = u.id
 		WHERE mu.mailbox_id = $1 AND mu.is_active = TRUE
@@ -471,6 +495,38 @@ func (db *DB) GetSendingAddressesByMailboxID(ctx context.Context, mailboxID uuid
 		ORDER BY address ASC
 	`, mailboxID)
 	return addresses, err
+}
+
+func (db *DB) CreatePasswordReset(ctx context.Context, userID uuid.UUID, token string, expires time.Time) error {
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO password_reset (user_id, token, expires_datetime)
+		VALUES ($1, $2, $3)
+	`, userID, token, expires)
+	return err
+}
+
+func (db *DB) GetPasswordResetByToken(ctx context.Context, token string) (*models.PasswordReset, error) {
+	var pr models.PasswordReset
+	err := db.GetContext(ctx, &pr, `
+		SELECT id, user_id, token, expires_datetime, create_datetime
+		FROM password_reset
+		WHERE token = $1 AND expires_datetime > CURRENT_TIMESTAMP
+	`, token)
+	return &pr, err
+}
+
+func (db *DB) DeletePasswordReset(ctx context.Context, token string) error {
+	_, err := db.ExecContext(ctx, `DELETE FROM password_reset WHERE token = $1`, token)
+	return err
+}
+
+func (db *DB) UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE "user"
+		SET password_hash = $2, update_datetime = NOW()
+		WHERE id = $1
+	`, userID, passwordHash)
+	return err
 }
 
 func (db *DB) CreateTOTPPending(ctx context.Context, userID uuid.UUID, token string, expires time.Time) error {

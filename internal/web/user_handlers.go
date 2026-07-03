@@ -5,7 +5,10 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/mail"
+	"strings"
 
+	"github.com/colormechadd/mailaroo/pkg/auth"
 	"github.com/colormechadd/mailaroo/pkg/models"
 	"github.com/colormechadd/mailaroo/templates"
 	"github.com/go-chi/chi/v5"
@@ -68,11 +71,42 @@ func (s *Server) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessions, err := s.DB.ListActiveSessions(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to fetch active sessions", "user_id", user.ID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
 	currentMailboxID := uuid.Nil
 	if len(mailboxes) > 0 {
 		currentMailboxID = mailboxes[0].ID
 	}
-	s.render(w, r, user, mailboxes, currentMailboxID, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses), "Account")
+	s.render(w, r, user, mailboxes, currentMailboxID, "all", nil, templates.UserInfo(user, mailboxes, sendingAddresses, sessions), "Account")
+}
+
+func (s *Server) handleCancelSession(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	sessionID, err := uuid.Parse(chi.URLParam(r, "sessionID"))
+	if err != nil {
+		http.Error(w, "Invalid session ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.DB.ExpireWebmailSessionByID(r.Context(), sessionID); err != nil {
+		slog.Error("failed to cancel session", "session_id", sessionID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	sessions, err := s.DB.ListActiveSessions(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("failed to list sessions after cancel", "user_id", user.ID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	templates.SessionsList(sessions).Render(r.Context(), w)
 }
 
 func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request) {
@@ -94,4 +128,72 @@ func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+
+	currentPassword := r.FormValue("current_password")
+	newPassword := r.FormValue("new_password")
+	confirmPassword := r.FormValue("confirm_password")
+
+	if newPassword == "" || len(newPassword) < 8 {
+		templates.ChangePasswordMessage("New password must be at least 8 characters.", true).Render(r.Context(), w)
+		return
+	}
+	if newPassword != confirmPassword {
+		templates.ChangePasswordMessage("New passwords do not match.", true).Render(r.Context(), w)
+		return
+	}
+
+	match, err := auth.ComparePassword(currentPassword, user.PasswordHash)
+	if err != nil || !match {
+		templates.ChangePasswordMessage("Current password is incorrect.", true).Render(r.Context(), w)
+		return
+	}
+
+	hash, err := auth.HashPassword(newPassword)
+	if err != nil {
+		slog.Error("failed to hash new password", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.DB.UpdateUserPassword(r.Context(), user.ID, hash); err != nil {
+		slog.Error("failed to update password", "user_id", user.ID, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("password changed", "user_id", user.ID)
+	templates.ChangePasswordMessage("Password updated successfully.", false).Render(r.Context(), w)
+}
+
+func (s *Server) handleUserUpdateRecoveryEmail(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+
+	currentPassword := r.FormValue("current_password")
+	email := strings.TrimSpace(r.FormValue("recovery_email"))
+
+	if email != "" {
+		if _, err := mail.ParseAddress(email); err != nil {
+			templates.ChangePasswordMessage("Invalid email address.", true).Render(r.Context(), w)
+			return
+		}
+	}
+
+	match, err := auth.ComparePassword(currentPassword, user.PasswordHash)
+	if err != nil || !match {
+		templates.ChangePasswordMessage("Current password is incorrect.", true).Render(r.Context(), w)
+		return
+	}
+
+	if err := s.DB.UpdateUserRecoveryEmail(r.Context(), user.ID, email); err != nil {
+		slog.Error("failed to update recovery email", "user_id", user.ID, "error", err)
+		templates.ChangePasswordMessage("Failed to update recovery email.", true).Render(r.Context(), w)
+		return
+	}
+
+	slog.Info("recovery email updated", "user_id", user.ID, "email", email)
+	templates.ChangePasswordMessage("Recovery email updated successfully.", false).Render(r.Context(), w)
 }
