@@ -1,14 +1,6 @@
 # Stage 1: Build
 FROM golang:1.26-bookworm AS builder
 
-# Install templ
-RUN go install github.com/a-h/templ/cmd/templ@latest
-
-# Install tailwindcss CLI
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-linux-x64 && \
-    chmod +x tailwindcss-linux-x64 && \
-    mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss
-
 WORKDIR /app
 
 # Copy dependency files
