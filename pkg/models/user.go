@@ -11,6 +11,7 @@ type User struct {
 	ID              uuid.UUID      `db:"id" json:"id"`
 	Username        string         `db:"username" json:"username"`
 	PasswordHash    string         `db:"password_hash" json:"-"`
+	RecoveryEmail   string         `db:"recovery_email" json:"recovery_email"`
 	IsActive        bool           `db:"is_active" json:"is_active"`
 	IsAdmin         bool           `db:"is_admin" json:"is_admin"`
 	TOTPEnabled     bool           `db:"totp_enabled" json:"totp_enabled"`
@@ -25,6 +26,7 @@ type WebmailSession struct {
 	RemoteIP        *string   `db:"remote_ip" json:"remote_ip"`
 	UserAgent       *string   `db:"user_agent" json:"user_agent"`
 	ExpiresDatetime time.Time `db:"expires_datetime" json:"expires_datetime"`
+	CreateDatetime  time.Time `db:"create_datetime" json:"create_datetime"`
 }
 
 type TOTPPending struct {
@@ -32,4 +34,12 @@ type TOTPPending struct {
 	UserID          uuid.UUID `db:"user_id"`
 	Token           string    `db:"token"`
 	ExpiresDatetime time.Time `db:"expires_datetime"`
+}
+
+type PasswordReset struct {
+	ID              uuid.UUID `db:"id"`
+	UserID          uuid.UUID `db:"user_id"`
+	Token           string    `db:"token"`
+	ExpiresDatetime time.Time `db:"expires_datetime"`
+	CreateDatetime  time.Time `db:"create_datetime"`
 }

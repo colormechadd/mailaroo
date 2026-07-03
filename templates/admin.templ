@@ -477,6 +477,9 @@ templ AdminUserList(users []models.User, mailboxes []models.Mailbox, domains []s
 						/>
 						<input type="password" name="password" placeholder="Password" required class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
 					</div>
+					<div>
+						<input type="email" name="recovery_email" placeholder="Recovery email (for password resets)" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
+					</div>
 					<!-- New mailbox mode -->
 					<div x-show="mode === 'new'" class="space-y-2">
 						<input x-ref="mailboxName" type="text" name="mailbox_name" placeholder="Mailbox name" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"/>
@@ -601,6 +604,23 @@ templ AdminUserDetail(u models.User, mailboxes []models.Mailbox, allMailboxes []
 					</button>
 				</form>
 			</div>
+		</div>
+
+		<!-- Recovery Email -->
+		<div class="bg-white rounded-xl border border-purple-100 shadow-sm p-6">
+			<h2 class="text-sm font-bold text-gray-700 uppercase tracking-widest mb-4">Recovery Email</h2>
+			<p class="text-xs text-gray-400 mb-3">Used to receive password reset links.</p>
+			<form hx-post={ "/admin/users/" + u.ID.String() + "/recovery-email" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url={ "/admin/users/" + u.ID.String() } class="flex gap-3 items-center">
+				@csrfInput(csrfToken)
+				<input
+					type="email"
+					name="recovery_email"
+					value={ u.RecoveryEmail }
+					placeholder="user@example.com"
+					class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+				/>
+				<button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors">Save</button>
+			</form>
 		</div>
 
 		<!-- Mailboxes -->

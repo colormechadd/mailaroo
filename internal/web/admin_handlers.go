@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -73,11 +74,13 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	recoveryEmail := strings.TrimSpace(r.FormValue("recovery_email"))
 	u := &models.User{
-		ID:           uuid.Must(uuid.NewV7()),
-		Username:     username,
-		PasswordHash: hash,
-		IsActive:     true,
+		ID:            uuid.Must(uuid.NewV7()),
+		Username:      username,
+		PasswordHash:  hash,
+		RecoveryEmail: recoveryEmail,
+		IsActive:      true,
 	}
 	if err := s.AdminDB.CreateUserNoMailbox(r.Context(), u); err != nil {
 		slog.Error("admin: failed to create user", "username", username, "error", err)
@@ -236,6 +239,27 @@ func (s *Server) handleAdminUserToggleAdmin(w http.ResponseWriter, r *http.Reque
 	}
 	if err := s.AdminDB.ToggleUserAdmin(r.Context(), userID); err != nil {
 		slog.Error("admin: failed to toggle user admin", "user_id", userID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	s.redirectToUserDetail(w, r, userID)
+}
+
+func (s *Server) handleAdminUserSetRecoveryEmail(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(chi.URLParam(r, "userID"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	email := strings.TrimSpace(r.FormValue("recovery_email"))
+	if email != "" {
+		if _, err := mail.ParseAddress(email); err != nil {
+			http.Error(w, "Invalid email address.", http.StatusBadRequest)
+			return
+		}
+	}
+	if err := s.AdminDB.UpdateUserRecoveryEmail(r.Context(), userID, email); err != nil {
+		slog.Error("admin: failed to update recovery email", "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
