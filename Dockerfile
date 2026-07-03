@@ -5,7 +5,7 @@ FROM golang:1.26-bookworm AS builder
 RUN go install github.com/a-h/templ/cmd/templ@latest
 
 # Install tailwindcss CLI
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && \
+RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-linux-x64 && \
     chmod +x tailwindcss-linux-x64 && \
     mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss
 
@@ -20,24 +20,29 @@ COPY . .
 
 # Generate assets and build
 RUN go generate ./...
-RUN go build -o mailaroo cmd/mailaroo/*.go
+RUN CGO_ENABLED=0 go build -o mailaroo cmd/mailaroo/*.go
+
+# Create non-root user for runtime
+RUN groupadd -r mailaroo && useradd -r -g mailaroo mailaroo
 
 # Stage 2: Runtime
-FROM debian:bookworm-slim
+FROM gcr.io/distroless/static-debian12
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
 
 WORKDIR /app
 
 # Copy binary and assets
-COPY --from=builder /app/mailaroo .
-COPY --from=builder /app/static ./static
-COPY --from=builder /app/db/migrations ./db/migrations
+COPY --from=builder --chown=mailaroo:mailaroo /app/mailaroo .
+COPY --from=builder --chown=mailaroo:mailaroo /app/static ./static
+COPY --from=builder --chown=mailaroo:mailaroo /app/db/migrations ./db/migrations
 
-# Standard SMTP ports + Web UI
-EXPOSE 25 2525 8080
+USER mailaroo
+
+# SMTP (plain + submission + submissions) + Web UI
+EXPOSE 25 465 587 8080
 
 # The root command of the binary starts the server by default
 ENTRYPOINT ["./mailaroo"]
