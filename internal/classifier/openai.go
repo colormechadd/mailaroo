@@ -11,9 +11,10 @@ import (
 )
 
 type OpenAIConfig struct {
-	APIKey string
-	Model  string
-	URL    string
+	APIKey          string
+	Model           string
+	URL             string
+	DisableThinking bool
 }
 
 type openAIProvider struct {
@@ -46,10 +47,11 @@ type chatMessage struct {
 }
 
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens"`
+	Model       string           `json:"model"`
+	Messages    []chatMessage    `json:"messages"`
+	Temperature float64          `json:"temperature"`
+	MaxTokens   int              `json:"max_tokens"`
+	Thinking    *json.RawMessage `json:"thinking,omitempty"`
 }
 
 type chatChoice struct {
@@ -94,6 +96,11 @@ func (o *openAIProvider) Classify(ctx context.Context, input ClassifyInput) (Cat
 		},
 		Temperature: 0.1,
 		MaxTokens:   20,
+	}
+
+	if o.config.DisableThinking {
+		v := json.RawMessage(`{"type":"disabled"}`)
+		body.Thinking = &v
 	}
 
 	payload, err := json.Marshal(body)
