@@ -207,6 +207,7 @@ func (s *Server) slogLogger(next http.Handler) http.Handler {
 			s.logger.Info("request",
 				"method", r.Method,
 				"path", r.URL.Path,
+				"ip", r.RemoteAddr,
 				"status", ww.Status(),
 				"duration", time.Since(start).String(),
 				"bytes", ww.BytesWritten(),
@@ -250,11 +251,11 @@ func (s *Server) Routes() http.Handler {
 	r.Use(htmxCSRFMiddleware)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Warn("route not found", "method", r.Method, "path", r.URL.Path)
+		s.logger.Warn("route not found", "method", r.Method, "path", r.URL.Path, "ip", r.RemoteAddr)
 		http.Error(w, "Not found", http.StatusNotFound)
 	})
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Warn("method not allowed", "method", r.Method, "path", r.URL.Path)
+		s.logger.Warn("method not allowed", "method", r.Method, "path", r.URL.Path, "ip", r.RemoteAddr)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 

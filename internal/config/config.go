@@ -139,9 +139,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	viper.SetEnvPrefix("MAILAROO")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 	viper.BindEnv("DATABASE_URL")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.BindEnv("CLASSIFIER.API_KEY")
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
