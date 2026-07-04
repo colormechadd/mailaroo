@@ -4,7 +4,6 @@ data
 bin
 tmp
 mailaroo
-static/css/output.css
 *_templ.go
 node_modules
 .env
