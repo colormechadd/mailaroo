@@ -95,7 +95,7 @@ func (o *openAIProvider) Classify(ctx context.Context, input ClassifyInput) (Cat
 			},
 		},
 		Temperature: 0.1,
-		MaxTokens:   20,
+		MaxTokens:   50,
 	}
 
 	if o.config.DisableThinking {

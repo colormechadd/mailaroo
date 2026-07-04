@@ -80,7 +80,7 @@ func (c *claudeProvider) Classify(ctx context.Context, input ClassifyInput) (Cat
 
 	body := claudeRequest{
 		Model:     c.config.Model,
-		MaxTokens: 20,
+		MaxTokens: 50,
 		System: fmt.Sprintf(
 			`You are an email classifier. Classify the email into exactly one of these categories: %s. Respond with ONLY the category name, nothing else.`,
 			strings.Join(categories, ", "),
