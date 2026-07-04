@@ -141,8 +141,11 @@ func (p *Pipeline) runStep(ctx context.Context, ictx *IngestionContext, name str
 	duration := time.Since(start)
 
 	detailsJSON, _ := json.Marshal(details)
-	if err != nil && details == nil {
-		detailsJSON, _ = json.Marshal(map[string]string{"error": err.Error()})
+	if err != nil {
+		slog.Error("pipeline step error", "ingestion_id", ictx.ID, "step", name, "status", status, "error", err)
+		if details == nil {
+			detailsJSON, _ = json.Marshal(map[string]string{"error": err.Error()})
+		}
 	}
 
 	step := &models.IngestionStep{
