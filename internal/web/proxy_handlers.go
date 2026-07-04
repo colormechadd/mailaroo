@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -117,7 +116,7 @@ func (s *Server) handleProxyImage(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := proxyHTTPClient.Do(req)
 	if err != nil {
-		slog.Error("image proxy fetch failed", "url", rawURL, "err", err)
+		s.logger.Error("image proxy fetch failed", "url", rawURL, "err", err)
 		http.Error(w, "bad gateway", http.StatusBadGateway)
 		return
 	}
@@ -131,7 +130,7 @@ func (s *Server) handleProxyImage(w http.ResponseWriter, r *http.Request) {
 	ct := resp.Header.Get("Content-Type")
 	mediaType, _, _ := mime.ParseMediaType(ct)
 	if !strings.HasPrefix(mediaType, "image/") {
-		slog.Error("image proxy received non-image content type", "url", rawURL, "content_type", ct)
+		s.logger.Error("image proxy received non-image content type", "url", rawURL, "content_type", ct)
 		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
 		return
 	}

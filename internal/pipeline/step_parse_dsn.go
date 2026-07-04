@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/textproto"
@@ -31,7 +30,7 @@ func ParseDSN(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepSta
 	lastError := fmt.Sprintf("bounce: status=%s diagnostic=%s", dsnStatus, diagnostic)
 
 	if err := p.db.UpdateOutboundJobFailed(ctx, jobID, lastError); err != nil {
-		slog.Error("failed to update outbound job via bounce DSN", "job_id", jobID, "error", err)
+		p.logger.Error("failed to update outbound job via bounce DSN", "job_id", jobID, "error", err)
 	}
 
 	return StatusPass, map[string]any{

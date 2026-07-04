@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/colormechadd/mailaroo/internal/mail"
@@ -35,7 +36,7 @@ func newIngestionCtx(raw []byte) *IngestionContext {
 // the given MockStorage (compression "none" so keys have no suffix).
 func pipelineWithStorage(s *MockStorage) *Pipeline {
 	mailSvc := mail.NewService(nil, s, "none", nil)
-	return &Pipeline{mail: mailSvc}
+	return &Pipeline{logger: slog.With("service", "pipeline"), mail: mailSvc}
 }
 
 // originalEmailKey returns the expected storage key for the original email archive.

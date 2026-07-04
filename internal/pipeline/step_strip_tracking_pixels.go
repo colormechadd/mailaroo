@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log/slog"
 
 	gomail "github.com/emersion/go-message/mail"
 
@@ -19,7 +18,7 @@ func StripTrackingPixels(ctx context.Context, p *Pipeline, ictx *IngestionContex
 	if err != nil {
 		// Pixels were detected but the message could not be rebuilt. Log what
 		// we found for the pipeline page but leave the stored message unchanged.
-		slog.Warn("strip_tracking_pixels: detected pixels but could not rebuild message",
+		p.logger.Warn("strip_tracking_pixels: detected pixels but could not rebuild message",
 			"ingestion_id", ictx.ID, "count", len(pixels), "error", err)
 		return StatusNeutral, map[string]any{
 			"detected": len(pixels),
@@ -35,7 +34,7 @@ func StripTrackingPixels(ctx context.Context, p *Pipeline, ictx *IngestionContex
 	// Store the original raw email before overwriting RawMessage.
 	originalKey, err := p.mail.StoreOriginalEmail(ctx, ictx.TargetMailboxID, ictx.EmailID, ictx.RawMessage)
 	if err != nil {
-		slog.Warn("strip_tracking_pixels: could not store original email",
+		p.logger.Warn("strip_tracking_pixels: could not store original email",
 			"ingestion_id", ictx.ID, "error", err)
 		// Non-fatal: continue and strip the pixels even if archival fails.
 		originalKey = ""

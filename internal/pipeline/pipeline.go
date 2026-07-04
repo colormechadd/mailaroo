@@ -42,14 +42,15 @@ type Broadcaster interface {
 type Step func(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatus, any, error)
 
 type Pipeline struct {
-	cfg        *config.Config
-	db         db.PipelineDB
-	storage    storage.Storage
-	hub        Broadcaster
-	mail       *mail.Service
-	rspamd     *rspamd.Client
+	logger    *slog.Logger
+	cfg       *config.Config
+	db        db.PipelineDB
+	storage   storage.Storage
+	hub       Broadcaster
+	mail      *mail.Service
+	rspamd    *rspamd.Client
 	classifier classifier.Classifier
-	steps      []struct {
+	steps     []struct {
 		name string
 		fn   Step
 	}
@@ -57,6 +58,7 @@ type Pipeline struct {
 
 func NewPipeline(cfg *config.Config, db db.PipelineDB, storage storage.Storage, hub Broadcaster, mailSvc *mail.Service, rspamdClient *rspamd.Client, classifier classifier.Classifier) *Pipeline {
 	p := &Pipeline{
+		logger:     slog.With("service", "pipeline"),
 		cfg:        cfg,
 		db:         db,
 		storage:    storage,
@@ -103,7 +105,7 @@ type IngestionContext struct {
 }
 
 func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {
-	slog.Info("processing ingestion", "ingestion_id", ictx.ID, "from", ictx.FromAddress, "mailbox_id", ictx.TargetMailboxID)
+	p.logger.Info("processing ingestion", "ingestion_id", ictx.ID, "from", ictx.FromAddress, "mailbox_id", ictx.TargetMailboxID)
 
 	ingestion := &models.Ingestion{
 		ID:          ictx.ID,
@@ -115,23 +117,23 @@ func (p *Pipeline) Process(ctx context.Context, ictx *IngestionContext) error {
 	}
 
 	if err := p.db.CreateIngestion(ctx, ingestion); err != nil {
-		slog.Error("failed to create ingestion record", "ingestion_id", ictx.ID, "error", err)
+		p.logger.Error("failed to create ingestion record", "ingestion_id", ictx.ID, "error", err)
 		return err
 	}
 
 	for _, step := range p.steps {
 		status := p.runStep(ctx, ictx, step.name, step.fn)
 		if status == StatusFail {
-			slog.Warn("ingestion rejected", "ingestion_id", ictx.ID, "step", step.name)
+			p.logger.Warn("ingestion rejected", "ingestion_id", ictx.ID, "step", step.name)
 			return p.db.UpdateIngestionStatus(ctx, ictx.ID, "rejected")
 		}
 		if status == StatusError {
-			slog.Error("ingestion failed", "ingestion_id", ictx.ID, "step", step.name)
+			p.logger.Error("ingestion failed", "ingestion_id", ictx.ID, "step", step.name)
 			return p.db.UpdateIngestionStatus(ctx, ictx.ID, "failed")
 		}
 	}
 
-	slog.Info("ingestion completed successfully", "ingestion_id", ictx.ID)
+	p.logger.Info("ingestion completed successfully", "ingestion_id", ictx.ID)
 	return p.db.UpdateIngestionStatus(ctx, ictx.ID, "accepted")
 }
 
@@ -142,7 +144,7 @@ func (p *Pipeline) runStep(ctx context.Context, ictx *IngestionContext, name str
 
 	detailsJSON, _ := json.Marshal(details)
 	if err != nil {
-		slog.Error("pipeline step error", "ingestion_id", ictx.ID, "step", name, "status", status, "error", err)
+		p.logger.Error("pipeline step error", "ingestion_id", ictx.ID, "step", name, "status", status, "error", err)
 		if details == nil {
 			detailsJSON, _ = json.Marshal(map[string]string{"error": err.Error()})
 		}
@@ -158,7 +160,7 @@ func (p *Pipeline) runStep(ctx context.Context, ictx *IngestionContext, name str
 	}
 
 	if dbErr := p.db.CreateIngestionStep(ctx, step); dbErr != nil {
-		slog.Error("failed to record ingestion step", "ingestion_id", ictx.ID, "step", name, "error", dbErr)
+		p.logger.Error("failed to record ingestion step", "ingestion_id", ictx.ID, "step", name, "error", dbErr)
 	}
 
 	return status

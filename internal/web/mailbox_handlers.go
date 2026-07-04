@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/base64"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,7 +19,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -62,7 +61,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +83,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	if filter == "drafts" {
 		drafts, err := s.DB.GetDraftsByMailboxID(r.Context(), mailboxID, user.ID)
 		if err != nil {
-			slog.Error("failed to fetch drafts", "mailbox_id", mailboxID, "error", err)
+			s.logger.Error("failed to fetch drafts", "mailbox_id", mailboxID, "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -96,7 +95,7 @@ func (s *Server) handleMailboxView(w http.ResponseWriter, r *http.Request) {
 	const pageSize = 50
 	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter, Category: category}, pageSize, nil, nil)
 	if err != nil {
-		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
+		s.logger.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -120,7 +119,7 @@ func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
 
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -146,7 +145,7 @@ func (s *Server) handleMailboxSearch(w http.ResponseWriter, r *http.Request) {
 	const pageSize = 50
 	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, buildEmailFilterFromQuery(query), pageSize, nil, nil)
 	if err != nil {
-		slog.Error("search failed", "mailbox_id", mailboxID, "query", query, "error", err)
+		s.logger.Error("search failed", "mailbox_id", mailboxID, "query", query, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -202,7 +201,7 @@ func (s *Server) handleMailboxMore(w http.ResponseWriter, r *http.Request) {
 	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter, Category: category}, pageSize, cursorTime, cursorID)
 
 	if err != nil {
-		slog.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
+		s.logger.Error("failed to fetch emails", "mailbox_id", mailboxID, "filter", filter, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -262,7 +261,7 @@ func (s *Server) handleSearchMore(w http.ResponseWriter, r *http.Request) {
 	const pageSize = 50
 	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, buildEmailFilterFromQuery(query), pageSize, cursorTime, cursorID)
 	if err != nil {
-		slog.Error("search more failed", "mailbox_id", mailboxID, "query", query, "error", err)
+		s.logger.Error("search more failed", "mailbox_id", mailboxID, "query", query, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

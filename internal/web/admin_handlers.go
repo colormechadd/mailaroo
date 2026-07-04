@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/mail"
@@ -29,19 +28,19 @@ func (s *Server) handleAdminUserList(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	users, err := s.AdminDB.ListUsers(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list users", "error", err)
+		s.logger.Error("admin: failed to list users", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	mailboxes, err := s.AdminDB.ListAllMailboxes(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list mailboxes", "error", err)
+		s.logger.Error("admin: failed to list mailboxes", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	dkimKeys, err := s.AdminDB.ListDKIMKeys(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list DKIM keys", "error", err)
+		s.logger.Error("admin: failed to list DKIM keys", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -70,7 +69,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
-		slog.Error("admin: failed to hash password", "error", err)
+		s.logger.Error("admin: failed to hash password", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -83,7 +82,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		IsActive:      true,
 	}
 	if err := s.AdminDB.CreateUserNoMailbox(r.Context(), u); err != nil {
-		slog.Error("admin: failed to create user", "username", username, "error", err)
+		s.logger.Error("admin: failed to create user", "username", username, "error", err)
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
@@ -92,13 +91,13 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if !committed {
 			if err := s.AdminDB.DeleteUser(context.Background(), u.ID); err != nil {
-				slog.Error("admin: failed to clean up orphan user", "user_id", u.ID, "error", err)
+				s.logger.Error("admin: failed to clean up orphan user", "user_id", u.ID, "error", err)
 			}
 		}
 	}()
 
 	mode := r.FormValue("mode")
-	slog.Info("admin: create user form values", "mode", mode,
+	s.logger.Info("admin: create user form values", "mode", mode,
 		"recv_local", r.FormValue("recv_local"), "recv_domain", r.FormValue("recv_domain"),
 		"send_local", r.FormValue("send_local"), "send_domain", r.FormValue("send_domain"),
 		"mailbox_name", r.FormValue("mailbox_name"),
@@ -110,14 +109,14 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := s.AdminDB.AddUserToMailbox(r.Context(), mbID, u.ID); err != nil {
-			slog.Error("admin: failed to add user to mailbox", "error", err)
+			s.logger.Error("admin: failed to add user to mailbox", "error", err)
 			http.Error(w, "Failed to assign mailbox", http.StatusInternalServerError)
 			return
 		}
 		if local, domain := strings.TrimSpace(r.FormValue("sa_local")), strings.TrimSpace(r.FormValue("sa_domain")); local != "" && domain != "" {
 			sa := &models.SendingAddress{ID: uuid.Must(uuid.NewV7()), UserID: u.ID, MailboxID: mbID, Address: local + "@" + domain, IsActive: true}
 			if err := s.AdminDB.AddSendingAddress(r.Context(), sa); err != nil {
-				slog.Error("admin: failed to add sending address", "error", err)
+				s.logger.Error("admin: failed to add sending address", "error", err)
 			}
 		}
 	} else {
@@ -127,7 +126,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		mb := &models.Mailbox{ID: uuid.Must(uuid.NewV7()), Name: mbName}
 		if err := s.AdminDB.CreateMailbox(r.Context(), mb, u.ID); err != nil {
-			slog.Error("admin: failed to create mailbox", "error", err)
+			s.logger.Error("admin: failed to create mailbox", "error", err)
 			http.Error(w, "Failed to create mailbox", http.StatusInternalServerError)
 			return
 		}
@@ -149,7 +148,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 				IsActive:       true,
 			}
 			if err := s.AdminDB.CreateAddressMapping(r.Context(), am); err != nil {
-				slog.Error("admin: failed to create address mapping", "error", err)
+				s.logger.Error("admin: failed to create address mapping", "error", err)
 			}
 		}
 		sendLocal, sendDomain := strings.TrimSpace(r.FormValue("send_local")), strings.TrimSpace(r.FormValue("send_domain"))
@@ -159,7 +158,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		if sendDomain != "" {
 			sa := &models.SendingAddress{ID: uuid.Must(uuid.NewV7()), UserID: u.ID, MailboxID: mb.ID, Address: sendLocal + "@" + sendDomain, IsActive: true}
 			if err := s.AdminDB.AddSendingAddress(r.Context(), sa); err != nil {
-				slog.Error("admin: failed to add sending address", "error", err)
+				s.logger.Error("admin: failed to add sending address", "error", err)
 			}
 		}
 	}
@@ -182,25 +181,25 @@ func (s *Server) handleAdminUserDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	mailboxes, err := s.AdminDB.ListMailboxes(r.Context(), userID)
 	if err != nil {
-		slog.Error("admin: failed to list mailboxes for user", "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to list mailboxes for user", "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	allMailboxes, err := s.AdminDB.ListAllMailboxes(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list all mailboxes", "error", err)
+		s.logger.Error("admin: failed to list all mailboxes", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	addrs, err := s.AdminDB.ListSendingAddresses(r.Context(), userID)
 	if err != nil {
-		slog.Error("admin: failed to list sending addresses for user", "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to list sending addresses for user", "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	dkimKeys, err := s.AdminDB.ListDKIMKeys(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list DKIM keys", "error", err)
+		s.logger.Error("admin: failed to list DKIM keys", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -219,7 +218,7 @@ func (s *Server) handleAdminUserToggleActive(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err := s.AdminDB.ToggleUserActive(r.Context(), userID); err != nil {
-		slog.Error("admin: failed to toggle user active", "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to toggle user active", "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -238,7 +237,7 @@ func (s *Server) handleAdminUserToggleAdmin(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err := s.AdminDB.ToggleUserAdmin(r.Context(), userID); err != nil {
-		slog.Error("admin: failed to toggle user admin", "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to toggle user admin", "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -259,7 +258,7 @@ func (s *Server) handleAdminUserSetRecoveryEmail(w http.ResponseWriter, r *http.
 		}
 	}
 	if err := s.AdminDB.UpdateUserRecoveryEmail(r.Context(), userID, email); err != nil {
-		slog.Error("admin: failed to update recovery email", "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to update recovery email", "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -292,7 +291,7 @@ func (s *Server) handleAdminUserAddSendingAddress(w http.ResponseWriter, r *http
 		IsActive:  true,
 	}
 	if err := s.AdminDB.AddSendingAddress(r.Context(), sa); err != nil {
-		slog.Error("admin: failed to add sending address", "address", address, "error", err)
+		s.logger.Error("admin: failed to add sending address", "address", address, "error", err)
 		http.Error(w, "Failed to add sending address", http.StatusInternalServerError)
 		return
 	}
@@ -312,7 +311,7 @@ func (s *Server) handleAdminUserAddMailbox(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if err := s.AdminDB.AddUserToMailbox(r.Context(), mbID, userID); err != nil {
-			slog.Error("admin: failed to add user to mailbox", "user_id", userID, "mailbox_id", mbID, "error", err)
+			s.logger.Error("admin: failed to add user to mailbox", "user_id", userID, "mailbox_id", mbID, "error", err)
 			http.Error(w, "Failed to add to mailbox", http.StatusInternalServerError)
 			return
 		}
@@ -324,7 +323,7 @@ func (s *Server) handleAdminUserAddMailbox(w http.ResponseWriter, r *http.Reques
 		}
 		mb := &models.Mailbox{ID: uuid.Must(uuid.NewV7()), Name: name}
 		if err := s.AdminDB.CreateMailbox(r.Context(), mb, userID); err != nil {
-			slog.Error("admin: failed to create mailbox for user", "user_id", userID, "error", err)
+			s.logger.Error("admin: failed to create mailbox for user", "user_id", userID, "error", err)
 			http.Error(w, "Failed to create mailbox", http.StatusInternalServerError)
 			return
 		}
@@ -347,7 +346,7 @@ func (s *Server) handleAdminMailboxList(w http.ResponseWriter, r *http.Request) 
 	user := r.Context().Value("user").(*models.User)
 	mailboxes, err := s.AdminDB.ListAllMailboxes(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list mailboxes", "error", err)
+		s.logger.Error("admin: failed to list mailboxes", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -368,7 +367,7 @@ func (s *Server) handleAdminMailboxCreate(w http.ResponseWriter, r *http.Request
 	}
 	mb := &models.Mailbox{ID: uuid.Must(uuid.NewV7()), Name: name}
 	if err := s.AdminDB.CreateMailbox(r.Context(), mb, u.ID); err != nil {
-		slog.Error("admin: failed to create mailbox", "name", name, "error", err)
+		s.logger.Error("admin: failed to create mailbox", "name", name, "error", err)
 		http.Error(w, "Failed to create mailbox", http.StatusInternalServerError)
 		return
 	}
@@ -393,31 +392,31 @@ func (s *Server) handleAdminMailboxDetail(w http.ResponseWriter, r *http.Request
 	}
 	mbUsers, err := s.DB.GetMailboxUsers(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("admin: failed to get mailbox users", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("admin: failed to get mailbox users", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	mappings, err := s.AdminDB.GetAddressMappingsByMailboxID(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("admin: failed to get address mappings", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("admin: failed to get address mappings", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	sendingAddrs, err := s.AdminDB.ListSendingAddressesByMailboxID(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("admin: failed to list sending addresses for mailbox", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("admin: failed to list sending addresses for mailbox", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	allUsers, err := s.AdminDB.ListUsers(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list users", "error", err)
+		s.logger.Error("admin: failed to list users", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	dkimKeys, err := s.AdminDB.ListDKIMKeys(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list DKIM keys", "error", err)
+		s.logger.Error("admin: failed to list DKIM keys", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -437,7 +436,7 @@ func (s *Server) handleAdminMailboxRemoveUser(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err := s.AdminDB.RemoveUserFromMailbox(r.Context(), mailboxID, userID); err != nil {
-		slog.Error("admin: failed to remove user from mailbox", "mailbox_id", mailboxID, "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to remove user from mailbox", "mailbox_id", mailboxID, "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -461,7 +460,7 @@ func (s *Server) handleAdminMailboxAddUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := s.AdminDB.AddUserToMailbox(r.Context(), mailboxID, userID); err != nil {
-		slog.Error("admin: failed to add user to mailbox", "mailbox_id", mailboxID, "user_id", userID, "error", err)
+		s.logger.Error("admin: failed to add user to mailbox", "mailbox_id", mailboxID, "user_id", userID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -494,7 +493,7 @@ func (s *Server) handleAdminMailboxAddMapping(w http.ResponseWriter, r *http.Req
 		IsActive:       true,
 	}
 	if err := s.AdminDB.CreateAddressMapping(r.Context(), am); err != nil {
-		slog.Error("admin: failed to create address mapping", "pattern", pattern, "error", err)
+		s.logger.Error("admin: failed to create address mapping", "pattern", pattern, "error", err)
 		http.Error(w, "Failed to create mapping", http.StatusInternalServerError)
 		return
 	}
@@ -512,19 +511,19 @@ func (s *Server) handleAdminSendingAddressList(w http.ResponseWriter, r *http.Re
 	user := r.Context().Value("user").(*models.User)
 	addrs, err := s.AdminDB.ListAllSendingAddresses(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list sending addresses", "error", err)
+		s.logger.Error("admin: failed to list sending addresses", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	users, err := s.AdminDB.ListUsers(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list users", "error", err)
+		s.logger.Error("admin: failed to list users", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	mailboxes, err := s.AdminDB.ListAllMailboxes(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list mailboxes", "error", err)
+		s.logger.Error("admin: failed to list mailboxes", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -557,7 +556,7 @@ func (s *Server) handleAdminSendingAddressCreate(w http.ResponseWriter, r *http.
 		IsActive:  true,
 	}
 	if err := s.AdminDB.AddSendingAddress(r.Context(), sa); err != nil {
-		slog.Error("admin: failed to add sending address", "address", address, "error", err)
+		s.logger.Error("admin: failed to add sending address", "address", address, "error", err)
 		http.Error(w, "Failed to add sending address", http.StatusInternalServerError)
 		return
 	}
@@ -575,7 +574,7 @@ func (s *Server) handleAdminSendingAddressReactivate(w http.ResponseWriter, r *h
 		return
 	}
 	if err := s.AdminDB.ReactivateSendingAddress(r.Context(), saID); err != nil {
-		slog.Error("admin: failed to reactivate sending address", "sa_id", saID, "error", err)
+		s.logger.Error("admin: failed to reactivate sending address", "sa_id", saID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -594,7 +593,7 @@ func (s *Server) handleAdminSendingAddressDeactivate(w http.ResponseWriter, r *h
 		return
 	}
 	if err := s.AdminDB.DeactivateSendingAddress(r.Context(), saID); err != nil {
-		slog.Error("admin: failed to deactivate sending address", "sa_id", saID, "error", err)
+		s.logger.Error("admin: failed to deactivate sending address", "sa_id", saID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -612,7 +611,7 @@ func (s *Server) handleAdminDomainList(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	keys, err := s.AdminDB.ListDKIMKeys(r.Context())
 	if err != nil {
-		slog.Error("admin: failed to list DKIM keys", "error", err)
+		s.logger.Error("admin: failed to list DKIM keys", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -632,13 +631,13 @@ func (s *Server) handleAdminDomainCreate(w http.ResponseWriter, r *http.Request)
 	}
 	der, err := outbound.GenerateKeyDER()
 	if err != nil {
-		slog.Error("admin: failed to generate DKIM key", "domain", domain, "error", err)
+		s.logger.Error("admin: failed to generate DKIM key", "domain", domain, "error", err)
 		http.Error(w, "Failed to generate key", http.StatusInternalServerError)
 		return
 	}
 	encrypted, err := outbound.EncryptKey(der, s.DKIMEncKey)
 	if err != nil {
-		slog.Error("admin: failed to encrypt DKIM key", "error", err)
+		s.logger.Error("admin: failed to encrypt DKIM key", "error", err)
 		http.Error(w, "Failed to encrypt key", http.StatusInternalServerError)
 		return
 	}
@@ -650,13 +649,13 @@ func (s *Server) handleAdminDomainCreate(w http.ResponseWriter, r *http.Request)
 		IsActive: true,
 	}
 	if err := s.AdminDB.InsertDKIMKey(r.Context(), key); err != nil {
-		slog.Error("admin: failed to insert DKIM key", "domain", domain, "error", err)
+		s.logger.Error("admin: failed to insert DKIM key", "domain", domain, "error", err)
 		http.Error(w, "Failed to save key", http.StatusInternalServerError)
 		return
 	}
 	dnsValue, err := outbound.DERToDNSValue(der)
 	if err != nil {
-		slog.Error("admin: failed to derive DNS value", "error", err)
+		s.logger.Error("admin: failed to derive DNS value", "error", err)
 		http.Error(w, "Failed to derive DNS value", http.StatusInternalServerError)
 		return
 	}
@@ -680,13 +679,13 @@ func (s *Server) handleAdminDomainDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	der, err := outbound.DecryptKey(key.KeyData, s.DKIMEncKey)
 	if err != nil {
-		slog.Error("admin: failed to decrypt DKIM key", "domain", domain, "error", err)
+		s.logger.Error("admin: failed to decrypt DKIM key", "domain", domain, "error", err)
 		http.Error(w, "Failed to read key", http.StatusInternalServerError)
 		return
 	}
 	dnsValue, err := outbound.DERToDNSValue(der)
 	if err != nil {
-		slog.Error("admin: failed to derive DNS value", "error", err)
+		s.logger.Error("admin: failed to derive DNS value", "error", err)
 		http.Error(w, "Failed to derive DNS value", http.StatusInternalServerError)
 		return
 	}
@@ -747,7 +746,7 @@ func (s *Server) handleAdminDomainRotate(w http.ResponseWriter, r *http.Request)
 	}
 	der, err := outbound.GenerateKeyDER()
 	if err != nil {
-		slog.Error("admin: failed to generate new DKIM key", "domain", domain, "error", err)
+		s.logger.Error("admin: failed to generate new DKIM key", "domain", domain, "error", err)
 		http.Error(w, "Failed to generate key", http.StatusInternalServerError)
 		return
 	}
@@ -757,7 +756,7 @@ func (s *Server) handleAdminDomainRotate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.AdminDB.UpdateDKIMKeyData(r.Context(), existing.ID, encrypted); err != nil {
-		slog.Error("admin: failed to update DKIM key", "domain", domain, "error", err)
+		s.logger.Error("admin: failed to update DKIM key", "domain", domain, "error", err)
 		http.Error(w, "Failed to update key", http.StatusInternalServerError)
 		return
 	}

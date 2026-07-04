@@ -1,7 +1,6 @@
 package web
 
 import (
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -22,28 +21,28 @@ func (s *Server) handleFilterRulesList(w http.ResponseWriter, r *http.Request) {
 
 	rules, err := s.DB.ListFilterRules(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("failed to list filter rules", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to list filter rules", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	mbUsers, err := s.DB.GetMailboxUsers(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("failed to list mailbox users", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to list mailbox users", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	sendingAddresses, err := s.DB.GetSendingAddressesByMailboxID(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("failed to list sending addresses", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to list sending addresses", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	blockRules, err := s.DB.ListBlockRules(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("failed to list block rules", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to list block rules", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -86,7 +85,7 @@ func (s *Server) handleFilterRuleCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := s.DB.CreateFilterRule(r.Context(), rule); err != nil {
-		slog.Error("failed to create filter rule", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to create filter rule", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -140,7 +139,7 @@ func (s *Server) handleFilterRuleUpdate(w http.ResponseWriter, r *http.Request) 
 	rule.ID = ruleID
 
 	if err := s.DB.UpdateFilterRule(r.Context(), rule); err != nil {
-		slog.Error("failed to update filter rule", "rule_id", ruleID, "error", err)
+		s.logger.Error("failed to update filter rule", "rule_id", ruleID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -163,7 +162,7 @@ func (s *Server) handleFilterRuleDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := s.DB.DeleteFilterRule(r.Context(), ruleID, mailboxID); err != nil {
-		slog.Error("failed to delete filter rule", "rule_id", ruleID, "error", err)
+		s.logger.Error("failed to delete filter rule", "rule_id", ruleID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -199,7 +198,7 @@ func (s *Server) handleFilterRuleReorder(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := s.DB.ReorderFilterRules(r.Context(), mailboxID, orderedIDs); err != nil {
-		slog.Error("failed to reorder filter rules", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to reorder filter rules", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

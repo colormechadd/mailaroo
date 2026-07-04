@@ -31,12 +31,13 @@ var retryDelays = []time.Duration{
 
 // Queue is the outbound delivery worker. It polls for queued jobs and delivers them.
 type Queue struct {
-	db  QueueDB
-	mta *MTA
+	logger *slog.Logger
+	db     QueueDB
+	mta    *MTA
 }
 
 func NewQueue(db QueueDB, mta *MTA) *Queue {
-	return &Queue{db: db, mta: mta}
+	return &Queue{logger: slog.With("service", "outbound"), db: db, mta: mta}
 }
 
 // Start launches the worker goroutine. It stops when ctx is cancelled.
@@ -58,7 +59,7 @@ func (q *Queue) run(ctx context.Context) {
 func (q *Queue) process(ctx context.Context) {
 	jobs, err := q.db.ClaimOutboundJobs(ctx, 10)
 	if err != nil {
-		slog.Error("failed to claim outbound jobs", "error", err)
+		q.logger.Error("failed to claim outbound jobs", "error", err)
 		return
 	}
 	for _, job := range jobs {
@@ -83,10 +84,10 @@ func (q *Queue) deliver(ctx context.Context, job models.OutboundJob) {
 		errStr := err.Error()
 		if attemptNumber >= job.MaxAttempts {
 			if dbErr := q.db.UpdateOutboundJobFailed(ctx, job.ID, errStr); dbErr != nil {
-				slog.Error("failed to mark job as FAILED", "job_id", job.ID, "error", dbErr)
+				q.logger.Error("failed to mark job as FAILED", "job_id", job.ID, "error", dbErr)
 			}
 			q.recordAttempt(ctx, job.ID, attemptNumber, "FAILED", &errStr)
-			slog.Warn("outbound job permanently failed", "job_id", job.ID, "attempts", attemptNumber, "error", err)
+			q.logger.Warn("outbound job permanently failed", "job_id", job.ID, "attempts", attemptNumber, "error", err)
 			return
 		}
 
@@ -96,22 +97,22 @@ func (q *Queue) deliver(ctx context.Context, job models.OutboundJob) {
 		}
 		nextAttemptAt := time.Now().Add(retryDelays[delayIdx])
 		if dbErr := q.db.UpdateOutboundJobDeferred(ctx, job.ID, errStr, attemptNumber, nextAttemptAt); dbErr != nil {
-			slog.Error("failed to mark job as DEFERRED", "job_id", job.ID, "error", dbErr)
-		}
-		q.recordAttempt(ctx, job.ID, attemptNumber, "DEFERRED", &errStr)
-		slog.Warn("outbound job deferred", "job_id", job.ID, "attempt", attemptNumber, "next_attempt_at", nextAttemptAt, "error", err)
+				q.logger.Error("failed to mark job as DEFERRED", "job_id", job.ID, "error", dbErr)
+			}
+			q.recordAttempt(ctx, job.ID, attemptNumber, "DEFERRED", &errStr)
+			q.logger.Warn("outbound job deferred", "job_id", job.ID, "attempt", attemptNumber, "next_attempt_at", nextAttemptAt, "error", err)
 		return
 	}
 
 	if dbErr := q.db.UpdateOutboundJobDelivered(ctx, job.ID); dbErr != nil {
-		slog.Error("failed to mark job as DELIVERED", "job_id", job.ID, "error", dbErr)
+		q.logger.Error("failed to mark job as DELIVERED", "job_id", job.ID, "error", dbErr)
 	}
 	q.recordAttempt(ctx, job.ID, attemptNumber, "DELIVERED", &serverResp)
-	slog.Info("outbound job delivered", "job_id", job.ID, "server_response", serverResp)
+	q.logger.Info("outbound job delivered", "job_id", job.ID, "server_response", serverResp)
 }
 
 func (q *Queue) recordAttempt(ctx context.Context, jobID uuid.UUID, attemptNumber int, outcome string, serverResponse *string) {
 	if err := q.db.InsertOutboundJobAttempt(ctx, jobID, attemptNumber, outcome, serverResponse); err != nil {
-		slog.Error("failed to record outbound job attempt", "job_id", jobID, "error", err)
+		q.logger.Error("failed to record outbound job attempt", "job_id", jobID, "error", err)
 	}
 }

@@ -192,7 +192,8 @@ func runServe() {
 }
 
 func runSmtp(ctx context.Context, servers []*gosmtp.Server) {
-	slog.Info("Starting SMTP servers")
+	log := slog.With("service", "smtp")
+	log.Info("Starting SMTP servers")
 	for _, s := range servers {
 		go func(s *gosmtp.Server) {
 			smtp.StartServer(s)
@@ -203,36 +204,39 @@ func runSmtp(ctx context.Context, servers []*gosmtp.Server) {
 	for _, s := range servers {
 		s.Close()
 	}
-	slog.Info("Stopped SMTP servers")
+	log.Info("Stopped SMTP servers")
 
 }
 
 func runOutboundQueue(ctx context.Context, database *db.DB, mta *outbound.MTA) {
-	slog.Info("Starting outbound queue")
+	log := slog.With("service", "outbound")
+	log.Info("Starting outbound queue")
 	outbound.NewQueue(database, mta).Start(ctx)
 	<-ctx.Done()
-	slog.Info("Stopped outbound queue")
+	log.Info("Stopped outbound queue")
 }
 
 func runRateLimitCleaner(ctx context.Context, database *db.DB) {
-	slog.Info("Starting rate limit cleaner")
+	log := slog.With("service", "main")
+	log.Info("Starting rate limit cleaner")
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			if err := database.PurgeExpiredRateLimitData(context.Background()); err != nil {
-				slog.Error("failed to purge expired rate limit data", "error", err)
+				log.Error("failed to purge expired rate limit data", "error", err)
 			}
 		case <-ctx.Done():
-			slog.Info("Stopped rate limit cleaner")
+			log.Info("Stopped rate limit cleaner")
 			return
 		}
 	}
 }
 
 func runTrashPurge(ctx context.Context, database *db.DB, store storage.Storage) {
-	slog.Info("Starting trash purge")
+	log := slog.With("service", "purge")
+	log.Info("Starting trash purge")
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	trashpurge.Run(database, store)
@@ -241,14 +245,15 @@ func runTrashPurge(ctx context.Context, database *db.DB, store storage.Storage) 
 		case <-ticker.C:
 			trashpurge.Run(database, store)
 		case <-ctx.Done():
-			slog.Info("Stopped rate limit cleaner")
+			log.Info("Stopped rate limit cleaner")
 			return
 		}
 	}
 }
 
 func runWebServer(ctx context.Context, cfg *config.Config, webServer *web.Server) {
-	slog.Info("Starting web server")
+	log := slog.With("service", "web")
+	log.Info("Starting web server")
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.WebPort),
@@ -258,14 +263,14 @@ func runWebServer(ctx context.Context, cfg *config.Config, webServer *web.Server
 	go func() {
 		var err error
 		if len(cfg.Web.CertFile) > 0 && len(cfg.Web.CertKeyFile) > 0 {
-			slog.Info("Starting Secure Webmail interface", "port", cfg.WebPort)
+			log.Info("Starting Secure Webmail interface", "port", cfg.WebPort)
 			err = srv.ListenAndServeTLS(cfg.Web.CertFile, cfg.Web.CertKeyFile)
 		} else {
-			slog.Info("Starting Webmail interface", "port", cfg.WebPort)
+			log.Info("Starting Webmail interface", "port", cfg.WebPort)
 			err = srv.ListenAndServe()
 		}
 		if err != nil && err != http.ErrServerClosed {
-			slog.Error("Web server failed", "error", err)
+			log.Error("Web server failed", "error", err)
 		}
 	}()
 
@@ -273,9 +278,9 @@ func runWebServer(ctx context.Context, cfg *config.Config, webServer *web.Server
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("Web server shutdown failed", "error", err)
+		log.Error("Web server shutdown failed", "error", err)
 	}
-	slog.Info("Stopped web server")
+	log.Info("Stopped web server")
 }
 
 func initLogger(cfg *config.Config) {

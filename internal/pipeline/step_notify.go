@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"log/slog"
 )
 
 // Notify broadcasts a new-mail event to all active users of the mailbox, but only if the email landed as unread.
@@ -13,7 +12,7 @@ func Notify(ctx context.Context, p *Pipeline, ictx *IngestionContext) (StepStatu
 
 	userIDs, err := p.db.GetMailboxUserIDs(ctx, ictx.TargetMailboxID)
 	if err != nil {
-		slog.Error("failed to get mailbox user IDs for notification", "mailbox_id", ictx.TargetMailboxID, "error", err)
+		p.logger.Error("failed to get mailbox user IDs for notification", "mailbox_id", ictx.TargetMailboxID, "error", err)
 		return StatusError, nil, err
 	}
 

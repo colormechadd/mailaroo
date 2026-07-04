@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	netmail "net/mail"
 	"regexp"
@@ -26,37 +25,37 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email", "email_id", emailID, "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch email", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	if !email.IsRead {
 		if err := s.DB.MarkEmailRead(r.Context(), emailID, user.ID, true); err != nil {
-			slog.Error("failed to mark email read", "email_id", emailID, "error", err)
+			s.logger.Error("failed to mark email read", "email_id", emailID, "error", err)
 		}
 		email.IsRead = true
 	}
 
 	attachments, err := s.DB.GetAttachmentsByEmailID(r.Context(), emailID)
 	if err != nil {
-		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
 	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
-		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
+		s.logger.Error("failed to fetch body", "key", email.StorageKey, "error", err)
 		content = "Failed to load content"
 	}
 
 	unsubInfo, err := s.Mail.FetchUnsubscribeInfo(r.Context(), email)
 	if err != nil {
-		slog.Error("failed to fetch unsubscribe info", "key", email.StorageKey, "error", err)
+		s.logger.Error("failed to fetch unsubscribe info", "key", email.StorageKey, "error", err)
 	}
 
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -72,7 +71,7 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 
 	senderBlockRule, err := s.DB.IsBlockedByMailboxRules(r.Context(), email.MailboxID, senderAddr)
 	if err != nil {
-		slog.Error("failed to check block rules", "mailbox_id", email.MailboxID, "error", err)
+		s.logger.Error("failed to check block rules", "mailbox_id", email.MailboxID, "error", err)
 	}
 	senderBlocked := senderBlockRule != nil
 
@@ -90,14 +89,14 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for star", "email_id", emailID, "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch email for star", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	starred := !email.IsStar
 	if err := s.DB.MarkEmailStarred(r.Context(), emailID, user.ID, starred); err != nil {
-		slog.Error("failed to toggle star", "email_id", emailID, "error", err)
+		s.logger.Error("failed to toggle star", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -111,17 +110,17 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 
 	attachments, err := s.DB.GetAttachmentsByEmailID(r.Context(), emailID)
 	if err != nil {
-		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
 	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
-		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
+		s.logger.Error("failed to fetch body", "key", email.StorageKey, "error", err)
 	}
 
 	unsubInfo, err := s.Mail.FetchUnsubscribeInfo(r.Context(), email)
 	if err != nil {
-		slog.Error("failed to fetch unsubscribe info", "key", email.StorageKey, "error", err)
+		s.logger.Error("failed to fetch unsubscribe info", "key", email.StorageKey, "error", err)
 	}
 
 	starSenderAddr := email.FromAddress
@@ -163,19 +162,19 @@ func (s *Server) handleBulkEmailAction(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "mark-read":
 		if err := s.DB.BulkMarkEmailRead(r.Context(), ids, user.ID, true); err != nil {
-			slog.Error("bulk mark read failed", "error", err)
+			s.logger.Error("bulk mark read failed", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	case "mark-unread":
 		if err := s.DB.BulkMarkEmailRead(r.Context(), ids, user.ID, false); err != nil {
-			slog.Error("bulk mark unread failed", "error", err)
+			s.logger.Error("bulk mark unread failed", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	case "delete":
 		if err := s.DB.BulkUpdateEmailStatus(r.Context(), ids, user.ID, models.StatusDeleted); err != nil {
-			slog.Error("bulk delete failed", "error", err)
+			s.logger.Error("bulk delete failed", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -193,7 +192,7 @@ func (s *Server) handleBulkEmailAction(w http.ResponseWriter, r *http.Request) {
 	emails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{View: filter}, 50, nil, nil)
 
 	if err != nil {
-		slog.Error("failed to fetch emails after bulk action", "error", err)
+		s.logger.Error("failed to fetch emails after bulk action", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -216,7 +215,7 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for delete", "email_id", emailID, "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch email for delete", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -227,7 +226,7 @@ func (s *Server) handleEmailDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
-		slog.Error("failed to toggle delete", "email_id", emailID, "error", err)
+		s.logger.Error("failed to toggle delete", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -262,13 +261,13 @@ func (s *Server) handleEmailDeleteAndBlock(w http.ResponseWriter, r *http.Reques
 		addr = parsed.Address
 	}
 	if err := s.DB.CreateBlockRule(r.Context(), email.MailboxID, user.ID, regexp.QuoteMeta(addr)); err != nil {
-		slog.Error("failed to create block rule", "mailbox_id", email.MailboxID, "error", err)
+		s.logger.Error("failed to create block rule", "mailbox_id", email.MailboxID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, models.StatusDeleted); err != nil {
-		slog.Error("failed to delete email", "email_id", emailID, "error", err)
+		s.logger.Error("failed to delete email", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -290,13 +289,13 @@ func (s *Server) handleEmailRelease(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for release", "email_id", emailID, "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch email for release", "email_id", emailID, "user_id", user.ID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, models.StatusInbox); err != nil {
-		slog.Error("failed to release email", "email_id", emailID, "error", err)
+		s.logger.Error("failed to release email", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -331,7 +330,7 @@ func (s *Server) handleEmailCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.UpdateEmailCategory(r.Context(), emailID, user.ID, category); err != nil {
-		slog.Error("failed to update email category", "email_id", emailID, "error", err)
+		s.logger.Error("failed to update email category", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -361,7 +360,7 @@ func (s *Server) handleEmailUnsubscribe(w http.ResponseWriter, r *http.Request) 
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, info.URL, strings.NewReader("List-Unsubscribe=One-Click"))
 	if err != nil {
-		slog.Error("failed to build unsubscribe request", "url", info.URL, "error", err)
+		s.logger.Error("failed to build unsubscribe request", "url", info.URL, "error", err)
 		http.Error(w, "Failed to unsubscribe", http.StatusInternalServerError)
 		return
 	}
@@ -369,7 +368,7 @@ func (s *Server) handleEmailUnsubscribe(w http.ResponseWriter, r *http.Request) 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		slog.Error("unsubscribe request failed", "url", info.URL, "error", err)
+		s.logger.Error("unsubscribe request failed", "url", info.URL, "error", err)
 		http.Error(w, "Failed to unsubscribe", http.StatusInternalServerError)
 		return
 	}
@@ -400,18 +399,18 @@ func (s *Server) handleEmailBlockSender(w http.ResponseWriter, r *http.Request) 
 	}
 	pattern := regexp.QuoteMeta(addr)
 	if err := s.DB.CreateBlockRule(r.Context(), email.MailboxID, user.ID, pattern); err != nil {
-		slog.Error("failed to create block rule", "mailbox_id", email.MailboxID, "error", err)
+		s.logger.Error("failed to create block rule", "mailbox_id", email.MailboxID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
 
 	attachments, err := s.DB.GetAttachmentsByEmailID(r.Context(), emailID)
 	if err != nil {
-		slog.Error("failed to fetch attachments", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
-		slog.Error("failed to fetch body", "key", email.StorageKey, "error", err)
+		s.logger.Error("failed to fetch body", "key", email.StorageKey, "error", err)
 		content = "Failed to load content"
 	}
 	unsubInfo, _ := s.Mail.FetchUnsubscribeInfo(r.Context(), email)
@@ -440,7 +439,7 @@ func (s *Server) handleManualBlockSender(w http.ResponseWriter, r *http.Request)
 
 	pattern := regexp.QuoteMeta(addr)
 	if err := s.DB.CreateBlockRule(r.Context(), mailboxID, user.ID, pattern); err != nil {
-		slog.Error("failed to create block rule", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to create block rule", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -462,7 +461,7 @@ func (s *Server) handleUnblockSender(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.DeleteBlockRule(r.Context(), blockRuleID, mailboxID); err != nil {
-		slog.Error("failed to delete block rule", "block_rule_id", blockRuleID, "error", err)
+		s.logger.Error("failed to delete block rule", "block_rule_id", blockRuleID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -481,13 +480,13 @@ func (s *Server) handleEmailLearn(w http.ResponseWriter, r *http.Request, spam b
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for spam learning", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch email for spam learning", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	if err := s.DB.UpdateEmailStatus(r.Context(), emailID, user.ID, targetStatus); err != nil {
-		slog.Error("failed to update email status for spam learning", "email_id", emailID, "error", err)
+		s.logger.Error("failed to update email status for spam learning", "email_id", emailID, "error", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
 		return
 	}
@@ -495,7 +494,7 @@ func (s *Server) handleEmailLearn(w http.ResponseWriter, r *http.Request, spam b
 	if s.Rspamd != nil {
 		raw, err := s.Mail.FetchRaw(r.Context(), email)
 		if err != nil {
-			slog.Error("failed to fetch raw email for rspamd learning", "email_id", emailID, "error", err)
+			s.logger.Error("failed to fetch raw email for rspamd learning", "email_id", emailID, "error", err)
 		} else {
 			var learnErr error
 			if spam {
@@ -504,7 +503,7 @@ func (s *Server) handleEmailLearn(w http.ResponseWriter, r *http.Request, spam b
 				learnErr = s.Rspamd.LearnHam(r.Context(), raw)
 			}
 			if learnErr != nil {
-				slog.Error("rspamd learn failed", "email_id", emailID, "spam", spam, "error", learnErr)
+				s.logger.Error("rspamd learn failed", "email_id", emailID, "spam", spam, "error", learnErr)
 			}
 		}
 	}
@@ -527,19 +526,19 @@ func (s *Server) handleEmailHeaders(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for headers", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch email for headers", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	headers, err := s.Mail.FetchHeaders(r.Context(), email)
 	if err != nil {
-		slog.Error("failed to fetch headers", "key", email.StorageKey, "error", err)
+		s.logger.Error("failed to fetch headers", "key", email.StorageKey, "error", err)
 	}
 
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 	}
 
 	counts := s.getCounts(r.Context(), email.MailboxID, user.ID)
@@ -556,27 +555,27 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 
 	email, err := s.DB.GetEmailByIDForUser(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch email for pipeline", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch email for pipeline", "email_id", emailID, "error", err)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 	}
 	counts := s.getCounts(r.Context(), email.MailboxID, user.ID)
 
 	if email.Direction == models.DirectionOutbound {
 		jobs, err := s.DB.GetOutboundJobsByEmailID(r.Context(), emailID)
 		if err != nil {
-			slog.Error("failed to fetch outbound jobs", "email_id", emailID, "error", err)
+			s.logger.Error("failed to fetch outbound jobs", "email_id", emailID, "error", err)
 		}
 		details := make([]templates.OutboundJobDetail, 0, len(jobs))
 		for _, job := range jobs {
 			attempts, err := s.DB.GetOutboundJobAttemptsByJobID(r.Context(), job.ID)
 			if err != nil {
-				slog.Error("failed to fetch outbound job attempts", "job_id", job.ID, "error", err)
+				s.logger.Error("failed to fetch outbound job attempts", "job_id", job.ID, "error", err)
 			}
 			details = append(details, templates.OutboundJobDetail{Job: job, Attempts: attempts})
 		}
@@ -586,7 +585,7 @@ func (s *Server) handleEmailPipeline(w http.ResponseWriter, r *http.Request) {
 
 	steps, err := s.DB.GetIngestionStepsByEmailID(r.Context(), emailID, user.ID)
 	if err != nil {
-		slog.Error("failed to fetch ingestion steps", "email_id", emailID, "error", err)
+		s.logger.Error("failed to fetch ingestion steps", "email_id", emailID, "error", err)
 	}
 
 	for i := range steps {

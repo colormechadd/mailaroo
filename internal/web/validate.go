@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var webLog = slog.With("service", "web")
+
 var allowedMIMETypes = map[string]bool{
 	"application/pdf":                                          true,
 	"image/jpeg":                                               true,
@@ -72,7 +74,7 @@ func validateAttachment(fileHeader *multipart.FileHeader) (*validatedFile, error
 	detected := http.DetectContentType(buf)
 
 	if !allowedMIMETypes[detected] {
-		slog.Warn("attachment with unallowed MIME type rejected", "filename", fileHeader.Filename, "detected", detected, "provided", fileHeader.Header.Get("Content-Type"))
+		webLog.Warn("attachment with unallowed MIME type rejected", "filename", fileHeader.Filename, "detected", detected, "provided", fileHeader.Header.Get("Content-Type"))
 		f.Close()
 		return nil, fmt.Errorf("file type %q is not allowed for attachments", detected)
 	}

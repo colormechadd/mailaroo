@@ -14,6 +14,7 @@ import (
 )
 
 func bootstrapFromConfig(ctx context.Context, database *db.DB, path string, dkimEncKey []byte) error {
+	log := slog.With("service", "bootstrap")
 	bootCfg, err := config.LoadBootstrapConfig(path)
 	if err != nil {
 		return fmt.Errorf("loading bootstrap config: %w", err)
@@ -24,7 +25,7 @@ func bootstrapFromConfig(ctx context.Context, database *db.DB, path string, dkim
 	for _, u := range bootCfg.Users {
 		existing, err := database.GetUserByUsername(ctx, u.Username)
 		if err == nil {
-			slog.Info("user already exists, skipping", "username", u.Username)
+			log.Info("user already exists, skipping", "username", u.Username)
 			userIDs[u.Username] = existing.ID
 			continue
 		}
@@ -47,12 +48,12 @@ func bootstrapFromConfig(ctx context.Context, database *db.DB, path string, dkim
 			return fmt.Errorf("creating user %s: %w", u.Username, err)
 		}
 		userIDs[u.Username] = user.ID
-		slog.Info("created user from bootstrap config", "username", u.Username)
+		log.Info("created user from bootstrap config", "username", u.Username)
 	}
 
 	for _, mb := range bootCfg.Mailboxes {
 		if len(mb.Users) == 0 {
-			slog.Warn("mailbox has no users, skipping", "mailbox", mb.Name)
+			log.Warn("mailbox has no users, skipping", "mailbox", mb.Name)
 			continue
 		}
 
@@ -119,7 +120,7 @@ func bootstrapFromConfig(ctx context.Context, database *db.DB, path string, dkim
 	for _, d := range bootCfg.Domains {
 		existing, err := database.GetActiveDKIMKey(ctx, d.Domain, nil)
 		if err == nil && existing != nil {
-			slog.Info("DKIM key already exists for domain, skipping", "domain", d.Domain)
+			log.Info("DKIM key already exists for domain, skipping", "domain", d.Domain)
 			continue
 		}
 
@@ -152,7 +153,7 @@ func bootstrapFromConfig(ctx context.Context, database *db.DB, path string, dkim
 		if err := database.InsertDKIMKey(ctx, key); err != nil {
 			return fmt.Errorf("inserting DKIM key for %s: %w", d.Domain, err)
 		}
-		slog.Info("created DKIM key from bootstrap config", "domain", d.Domain, "selector", selector)
+		log.Info("created DKIM key from bootstrap config", "domain", d.Domain, "selector", selector)
 	}
 
 	return nil

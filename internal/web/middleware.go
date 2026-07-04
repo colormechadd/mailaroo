@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -60,7 +59,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 
 		session, err := s.DB.GetWebmailSession(r.Context(), cookie.Value)
 		if err != nil || session.ExpiresDatetime.Before(time.Now()) {
-			slog.Warn("invalid or expired session", "error", err)
+			s.logger.Warn("invalid or expired session", "error", err)
 			if r.Header.Get("HX-Request") == "true" {
 				w.Header().Set("HX-Redirect", "/login")
 				return
@@ -71,7 +70,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 
 		user, err := s.DB.GetUserByID(r.Context(), session.UserID)
 		if err != nil || !user.IsActive {
-			slog.Warn("user not found or inactive", "user_id", session.UserID, "error", err)
+			s.logger.Warn("user not found or inactive", "user_id", session.UserID, "error", err)
 			if r.Header.Get("HX-Request") == "true" {
 				w.Header().Set("HX-Redirect", "/login")
 				return

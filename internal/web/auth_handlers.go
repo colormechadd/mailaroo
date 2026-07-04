@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -35,7 +34,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	recordFailure := func() bool {
 		limiter := s.loginLimiter(remoteIP)
 		if !limiter.Allow() {
-			slog.Warn("login rate limited", "ip", remoteIP)
+			s.logger.Warn("login rate limited", "ip", remoteIP)
 			http.Error(w, "Too many failed login attempts, please try again later", http.StatusTooManyRequests)
 			return true
 		}
@@ -44,7 +43,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.DB.GetUserByUsername(r.Context(), username)
 	if err != nil || !user.IsActive {
-		slog.Warn("login failed: user not found or inactive", "username", username)
+		s.logger.Warn("login failed: user not found or inactive", "username", username)
 		if recordFailure() {
 			return
 		}
@@ -54,7 +53,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	match, err := auth.ComparePassword(password, user.PasswordHash)
 	if err != nil || !match {
-		slog.Warn("login failed: incorrect password", "username", username)
+		s.logger.Warn("login failed: incorrect password", "username", username)
 		if recordFailure() {
 			return
 		}
@@ -66,7 +65,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		token := generateToken()
 		expires := time.Now().Add(5 * time.Minute)
 		if err := s.DB.CreateTOTPPending(r.Context(), user.ID, token, expires); err != nil {
-			slog.Error("failed to create TOTP pending session", "user_id", user.ID, "error", err)
+			s.logger.Error("failed to create TOTP pending session", "user_id", user.ID, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -84,10 +83,10 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := generateToken()
-	slog.Info("Expire seconds", "seconds", s.Config.Web.SessionExpirationSeconds)
+	s.logger.Info("Expire seconds", "seconds", s.Config.Web.SessionExpirationSeconds)
 	expires := time.Now().Add(time.Duration(s.Config.Web.SessionExpirationSeconds) * time.Second)
 	if err := s.DB.CreateWebmailSession(r.Context(), user.ID, token, r.RemoteAddr, r.UserAgent(), expires); err != nil {
-		slog.Error("failed to create session", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to create session", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -109,7 +108,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("mailaroo_session")
 	if err == nil {
 		if err := s.DB.ExpireWebmailSession(r.Context(), cookie.Value); err != nil {
-			slog.Error("failed to expire session on logout", "error", err)
+			s.logger.Error("failed to expire session on logout", "error", err)
 		}
 	}
 
@@ -138,7 +137,7 @@ func (s *Server) handleForgotPasswordPost(w http.ResponseWriter, r *http.Request
 
 	limiter := s.forgotPasswordLimiter(remoteIP)
 	if !limiter.Allow() {
-		slog.Warn("forgot password rate limited", "ip", remoteIP)
+		s.logger.Warn("forgot password rate limited", "ip", remoteIP)
 		http.Error(w, "Too many password reset requests, please try again later", http.StatusTooManyRequests)
 		return
 	}
@@ -152,7 +151,7 @@ func (s *Server) handleForgotPasswordPost(w http.ResponseWriter, r *http.Request
 	}
 
 	if user.RecoveryEmail == "" {
-		slog.Warn("password reset requested for user with no recovery email", "username", username)
+		s.logger.Warn("password reset requested for user with no recovery email", "username", username)
 		templates.ForgotPasswordPage("", "If that username exists and has a recovery email set, a password reset link has been sent.", csrf.Token(r)).Render(r.Context(), w)
 		return
 	}
@@ -160,7 +159,7 @@ func (s *Server) handleForgotPasswordPost(w http.ResponseWriter, r *http.Request
 	token := generateToken()
 	expires := time.Now().Add(15 * time.Minute)
 	if err := s.DB.CreatePasswordReset(r.Context(), user.ID, token, expires); err != nil {
-		slog.Error("failed to create password reset token", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to create password reset token", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -179,11 +178,11 @@ func (s *Server) handleForgotPasswordPost(w http.ResponseWriter, r *http.Request
 	}
 
 	if _, err := s.Sender.SendMessage(msg); err != nil {
-		slog.Error("failed to send password reset email", "user_id", user.ID, "recovery_email", user.RecoveryEmail, "error", err)
+		s.logger.Error("failed to send password reset email", "user_id", user.ID, "recovery_email", user.RecoveryEmail, "error", err)
 		// Token is already created but email failed - still show success for security
 	}
 
-	slog.Info("password reset email sent", "username", username, "recovery_email", user.RecoveryEmail)
+	s.logger.Info("password reset email sent", "username", username, "recovery_email", user.RecoveryEmail)
 	templates.ForgotPasswordPage("", "If that username exists and has a recovery email set, a password reset link has been sent.", csrf.Token(r)).Render(r.Context(), w)
 }
 
@@ -204,7 +203,7 @@ func (s *Server) handleResetPasswordPost(w http.ResponseWriter, r *http.Request)
 
 	limiter := s.resetPasswordLimiter(remoteIP)
 	if !limiter.Allow() {
-		slog.Warn("reset password rate limited", "ip", remoteIP)
+		s.logger.Warn("reset password rate limited", "ip", remoteIP)
 		http.Error(w, "Too many reset attempts, please try again later", http.StatusTooManyRequests)
 		return
 	}
@@ -228,29 +227,29 @@ func (s *Server) handleResetPasswordPost(w http.ResponseWriter, r *http.Request)
 
 	reset, err := s.DB.GetPasswordResetByToken(r.Context(), token)
 	if err != nil {
-		slog.Warn("invalid or expired password reset token", "error", err)
+		s.logger.Warn("invalid or expired password reset token", "error", err)
 		templates.ResetPasswordPage("Invalid or expired reset token. Please request a new password reset.", token, csrf.Token(r)).Render(r.Context(), w)
 		return
 	}
 
 	hash, err := auth.HashPassword(password)
 	if err != nil {
-		slog.Error("failed to hash new password", "error", err)
+		s.logger.Error("failed to hash new password", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DB.UpdateUserPassword(r.Context(), reset.UserID, hash); err != nil {
-		slog.Error("failed to update password", "user_id", reset.UserID, "error", err)
+		s.logger.Error("failed to update password", "user_id", reset.UserID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DB.DeletePasswordReset(r.Context(), token); err != nil {
-		slog.Error("failed to delete used password reset token", "error", err)
+		s.logger.Error("failed to delete used password reset token", "error", err)
 	}
 
-	slog.Info("password reset successful", "user_id", reset.UserID)
+	s.logger.Info("password reset successful", "user_id", reset.UserID)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/mail"
 	"regexp"
@@ -43,7 +42,7 @@ func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
 
 	contacts, err := s.DB.ListContacts(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("failed to list contacts", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to list contacts", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -65,7 +64,7 @@ func (s *Server) handleContactsPage(w http.ResponseWriter, r *http.Request) {
 	if selected != nil {
 		recentEmails, err = s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant:selected.Email}, 3, nil, nil)
 		if err != nil {
-			slog.Error("failed to fetch recent emails for contact", "contact_id", selected.ID, "error", err)
+			s.logger.Error("failed to fetch recent emails for contact", "contact_id", selected.ID, "error", err)
 		}
 	}
 
@@ -90,7 +89,7 @@ func (s *Server) handleContactView(w http.ResponseWriter, r *http.Request) {
 
 	contacts, err := s.DB.ListContacts(r.Context(), mailboxID)
 	if err != nil {
-		slog.Error("failed to list contacts", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to list contacts", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -109,7 +108,7 @@ func (s *Server) handleContactView(w http.ResponseWriter, r *http.Request) {
 
 	recentEmails, err := s.DB.SearchEmails(r.Context(), mailboxID, user.ID, db.EmailFilter{Participant:selected.Email}, 3, nil, nil)
 	if err != nil {
-		slog.Error("failed to fetch recent emails for contact", "contact_id", contactID, "error", err)
+		s.logger.Error("failed to fetch recent emails for contact", "contact_id", contactID, "error", err)
 	}
 
 	counts := s.getCounts(r.Context(), mailboxID, user.ID)
@@ -127,7 +126,7 @@ func (s *Server) handleContactSearch(w http.ResponseWriter, r *http.Request) {
 
 	contacts, err := s.DB.SearchContactsForUser(r.Context(), user.ID, q)
 	if err != nil {
-		slog.Error("failed to search contacts", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to search contacts", "user_id", user.ID, "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("[]"))
 		return
@@ -195,7 +194,7 @@ func (s *Server) handleContactCreate(w http.ResponseWriter, r *http.Request) {
 
 	created, err := s.DB.CreateContact(r.Context(), c)
 	if err != nil {
-		slog.Error("failed to create contact", "mailbox_id", mailboxID, "error", err)
+		s.logger.Error("failed to create contact", "mailbox_id", mailboxID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -247,7 +246,7 @@ func (s *Server) handleContactUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.UpdateContact(r.Context(), c); err != nil {
-		slog.Error("failed to update contact", "contact_id", contactID, "error", err)
+		s.logger.Error("failed to update contact", "contact_id", contactID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -277,7 +276,7 @@ func (s *Server) handleContactDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.DeleteContact(r.Context(), contactID, mailboxID); err != nil {
-		slog.Error("failed to delete contact", "contact_id", contactID, "error", err)
+		s.logger.Error("failed to delete contact", "contact_id", contactID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -302,7 +301,7 @@ func (s *Server) handleContactToggleFavorite(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := s.DB.ToggleContactFavorite(r.Context(), contactID, mailboxID); err != nil {
-		slog.Error("failed to toggle favorite", "contact_id", contactID, "error", err)
+		s.logger.Error("failed to toggle favorite", "contact_id", contactID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -340,14 +339,14 @@ func (s *Server) handleContactToggleBlock(w http.ResponseWriter, r *http.Request
 	rule, _ := s.DB.IsBlockedByMailboxRules(r.Context(), mailboxID, contact.Email)
 	if rule != nil {
 		if err := s.DB.DeleteBlockRule(r.Context(), rule.ID, mailboxID); err != nil {
-			slog.Error("failed to delete block rule", "error", err)
+			s.logger.Error("failed to delete block rule", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		pattern := regexp.QuoteMeta(contact.Email)
 		if err := s.DB.CreateBlockRule(r.Context(), mailboxID, user.ID, pattern); err != nil {
-			slog.Error("failed to create block rule", "error", err)
+			s.logger.Error("failed to create block rule", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -390,7 +389,7 @@ func (s *Server) handleAddContactFromEmail(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := s.DB.UpsertContactFromEmail(r.Context(), email.MailboxID, emailAddr, firstName, lastName); err != nil {
-		slog.Error("failed to upsert contact from email", "error", err)
+		s.logger.Error("failed to upsert contact from email", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

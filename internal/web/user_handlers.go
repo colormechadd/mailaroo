@@ -2,7 +2,6 @@ package web
 
 import (
 	"io"
-	"log/slog"
 	"mime"
 	"net/http"
 	"net/mail"
@@ -25,14 +24,14 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 
 	att, err := s.DB.GetAttachmentByIDForUser(r.Context(), attID, user.ID)
 	if err != nil {
-		slog.Error("attachment not found or forbidden", "att_id", attID, "user_id", user.ID, "error", err)
+		s.logger.Error("attachment not found or forbidden", "att_id", attID, "user_id", user.ID, "error", err)
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
 	rc, err := s.Storage.Get(r.Context(), att.StorageKey)
 	if err != nil {
-		slog.Error("failed to fetch attachment", "key", att.StorageKey, "error", err)
+		s.logger.Error("failed to fetch attachment", "key", att.StorageKey, "error", err)
 		http.Error(w, "Failed to load", http.StatusInternalServerError)
 		return
 	}
@@ -40,7 +39,7 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 
 	bodyReader, err := s.Mail.DecompressReader(rc, att.StorageKey)
 	if err != nil {
-		slog.Error("failed to decompress attachment", "key", att.StorageKey, "error", err)
+		s.logger.Error("failed to decompress attachment", "key", att.StorageKey, "error", err)
 		http.Error(w, "Failed to load", http.StatusInternalServerError)
 		return
 	}
@@ -48,7 +47,7 @@ func (s *Server) handleAttachmentDownload(w http.ResponseWriter, r *http.Request
 		defer closer.Close()
 	}
 
-	slog.Info("content type", att.ContentType)
+	s.logger.Info("content type", "type", att.ContentType)
 	w.Header().Set("Content-Type", att.ContentType)
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": att.Filename}))
 	io.Copy(w, bodyReader)
@@ -59,21 +58,21 @@ func (s *Server) handleUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch mailboxes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	sendingAddresses, err := s.DB.GetActiveSendingAddresses(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	sessions, err := s.DB.ListActiveSessions(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch active sessions", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch active sessions", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -94,14 +93,14 @@ func (s *Server) handleCancelSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.ExpireWebmailSessionByID(r.Context(), sessionID); err != nil {
-		slog.Error("failed to cancel session", "session_id", sessionID, "error", err)
+		s.logger.Error("failed to cancel session", "session_id", sessionID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	sessions, err := s.DB.ListActiveSessions(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to list sessions after cancel", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to list sessions after cancel", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -122,7 +121,7 @@ func (s *Server) handleUpdateDisplayName(w http.ResponseWriter, r *http.Request)
 
 	err = s.DB.UpdateSendingAddressDisplayName(r.Context(), saID, user.ID, displayName)
 	if err != nil {
-		slog.Error("failed to update display name", "user_id", user.ID, "sa_id", saID, "error", err)
+		s.logger.Error("failed to update display name", "user_id", user.ID, "sa_id", saID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -154,18 +153,18 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(newPassword)
 	if err != nil {
-		slog.Error("failed to hash new password", "error", err)
+		s.logger.Error("failed to hash new password", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DB.UpdateUserPassword(r.Context(), user.ID, hash); err != nil {
-		slog.Error("failed to update password", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to update password", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	slog.Info("password changed", "user_id", user.ID)
+	s.logger.Info("password changed", "user_id", user.ID)
 	templates.ChangePasswordMessage("Password updated successfully.", false).Render(r.Context(), w)
 }
 
@@ -189,11 +188,11 @@ func (s *Server) handleUserUpdateRecoveryEmail(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := s.DB.UpdateUserRecoveryEmail(r.Context(), user.ID, email); err != nil {
-		slog.Error("failed to update recovery email", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to update recovery email", "user_id", user.ID, "error", err)
 		templates.ChangePasswordMessage("Failed to update recovery email.", true).Render(r.Context(), w)
 		return
 	}
 
-	slog.Info("recovery email updated", "user_id", user.ID, "email", email)
+	s.logger.Info("recovery email updated", "user_id", user.ID, "email", email)
 	templates.ChangePasswordMessage("Recovery email updated successfully.", false).Render(r.Context(), w)
 }

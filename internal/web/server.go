@@ -24,6 +24,7 @@ import (
 type Server struct {
 	ServerConfig
 
+	logger            *slog.Logger
 	loginMu           sync.Mutex
 	loginLimiters     map[string]*loginEntry
 	forgotMu          sync.Mutex
@@ -62,6 +63,7 @@ type ServerConfig struct {
 func NewServer(cfg ServerConfig) *Server {
 	s := &Server{
 		ServerConfig:      cfg,
+		logger:            slog.With("service", "web"),
 		loginLimiters:     make(map[string]*loginEntry),
 		forgotLimiters:    make(map[string]*loginEntry),
 		resetLimiters:     make(map[string]*loginEntry),
@@ -197,6 +199,23 @@ func (s *Server) cleanupResetLimiters() {
 	}
 }
 
+func (s *Server) slogLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ww := chiMiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		start := time.Now()
+		defer func() {
+			s.logger.Info("request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", ww.Status(),
+				"duration", time.Since(start).String(),
+				"bytes", ww.BytesWritten(),
+			)
+		}()
+		next.ServeHTTP(ww, r)
+	})
+}
+
 func (s *Server) Routes() http.Handler {
 	csrfKey, err := base64.StdEncoding.DecodeString(s.Config.Web.CSRFAuthKey)
 	if err != nil || len(csrfKey) != 32 {
@@ -214,7 +233,7 @@ func (s *Server) Routes() http.Handler {
 		csrf.RequestHeader("X-CSRF-Token"),
 		csrf.FieldName("gorilla.csrf.Token"),
 		csrf.ErrorHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			slog.Warn("CSRF token invalid", "method", r.Method, "path", r.URL.Path, "reason", csrf.FailureReason(r))
+			s.logger.Warn("CSRF token invalid", "method", r.Method, "path", r.URL.Path, "reason", csrf.FailureReason(r))
 			http.Error(w, "Forbidden - CSRF token invalid", http.StatusForbidden)
 		})),
 	)
@@ -225,17 +244,17 @@ func (s *Server) Routes() http.Handler {
 	if s.Config.Web.TrustProxy {
 		r.Use(chiMiddleware.RealIP)
 	}
-	r.Use(chiMiddleware.Logger)
+	r.Use(s.slogLogger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(securityHeaders)
 	r.Use(htmxCSRFMiddleware)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		slog.Warn("route not found", "method", r.Method, "path", r.URL.Path)
+		s.logger.Warn("route not found", "method", r.Method, "path", r.URL.Path)
 		http.Error(w, "Not found", http.StatusNotFound)
 	})
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		slog.Warn("method not allowed", "method", r.Method, "path", r.URL.Path)
+		s.logger.Warn("method not allowed", "method", r.Method, "path", r.URL.Path)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 

@@ -42,6 +42,7 @@ type Sender interface {
 }
 
 type MTA struct {
+	logger     *slog.Logger
 	hostname   string
 	relay      string // optional smarthost "host:port"; if set, skip MX lookup
 	dkim       *DKIMSigner
@@ -53,12 +54,13 @@ func NewMTA(hostname string, relay string, dkim *DKIMSigner, requireTLS bool) *M
 		hostname = "localhost"
 	}
 
+	log := slog.With("service", "outbound")
 	if relay != "" {
-		slog.Debug("Using MTA relay", "relay", relay)
+		log.Debug("Using MTA relay", "relay", relay)
 	} else {
-		slog.Debug("Using MTA host", "host", hostname)
+		log.Debug("Using MTA host", "host", hostname)
 	}
-	return &MTA{hostname: hostname, relay: relay, dkim: dkim, requireTLS: requireTLS}
+	return &MTA{logger: slog.With("service", "outbound"), hostname: hostname, relay: relay, dkim: dkim, requireTLS: requireTLS}
 }
 
 func (m *MTA) BuildMessage(msg Message) (rawBytes []byte, from string, recipients []string, err error) {
@@ -131,7 +133,7 @@ func (m *MTA) BuildMessage(msg Message) (rawBytes []byte, from string, recipient
 		}
 		aw, err := mw.CreateAttachment(ah)
 		if err != nil {
-			slog.Error("failed to create attachment part", "filename", att.Filename, "error", err)
+			m.logger.Error("failed to create attachment part", "filename", att.Filename, "error", err)
 			continue
 		}
 		io.Copy(aw, att.Content)
@@ -150,7 +152,7 @@ func (m *MTA) BuildMessage(msg Message) (rawBytes []byte, from string, recipient
 		if domain != "" {
 			signed, err := m.dkim.Sign(domain, raw)
 			if err != nil {
-				slog.Warn("dkim signing failed, sending unsigned", "domain", domain, "error", err)
+				m.logger.Warn("dkim signing failed, sending unsigned", "domain", domain, "error", err)
 			} else {
 				raw = signed
 			}
@@ -184,7 +186,7 @@ func (m *MTA) Send(from string, to []string, msg []byte) error {
 // SendWithResponse delivers a message and returns the SMTP server's response text (e.g. "250 OK").
 func (m *MTA) SendWithResponse(from string, to []string, msg []byte) (string, error) {
 	if m.relay != "" {
-		slog.Debug("delivering via relay", "relay", m.relay)
+		m.logger.Debug("delivering via relay", "relay", m.relay)
 		return m.deliverToRelay(m.relay, from, to, msg)
 	}
 
@@ -192,7 +194,7 @@ func (m *MTA) SendWithResponse(from string, to []string, msg []byte) (string, er
 	for _, rcpt := range to {
 		parts := strings.Split(rcpt, "@")
 		if len(parts) != 2 {
-			slog.Warn("invalid recipient address", "address", rcpt)
+			m.logger.Warn("invalid recipient address", "address", rcpt)
 			continue
 		}
 		domain := parts[1]
@@ -206,7 +208,7 @@ func (m *MTA) SendWithResponse(from string, to []string, msg []byte) (string, er
 	for domain, recipients := range domains {
 		resp, err := m.deliverToDomain(domain, from, recipients, msg)
 		if err != nil {
-			slog.Error("failed to deliver email", "domain", domain, "error", err)
+			m.logger.Error("failed to deliver email", "domain", domain, "error", err)
 			errs = append(errs, err)
 		} else {
 			lastResp = resp
@@ -268,7 +270,7 @@ func (m *MTA) deliverToRelay(address string, from string, to []string, msg []byt
 			if m.requireTLS {
 				return "", fmt.Errorf("relay starttls failed and TLS is required: %w", err)
 			}
-			slog.Error("relay starttls failed, delivering in plaintext", "relay", address, "error", err)
+			m.logger.Error("relay starttls failed, delivering in plaintext", "relay", address, "error", err)
 		}
 	} else if m.requireTLS {
 		return "", fmt.Errorf("relay does not support STARTTLS and TLS is required")
@@ -279,7 +281,7 @@ func (m *MTA) deliverToRelay(address string, from string, to []string, msg []byt
 	}
 	for _, rcpt := range to {
 		if err := c.Rcpt(rcpt); err != nil {
-			slog.Warn("relay rejected recipient", "rcpt", rcpt, "error", err)
+			m.logger.Warn("relay rejected recipient", "rcpt", rcpt, "error", err)
 		}
 	}
 	resp, err := sendDataCapture(c, msg)
@@ -302,7 +304,7 @@ func (m *MTA) deliverToDomain(domain string, from string, to []string, msg []byt
 	var lastErr error
 	for _, mx := range mxs {
 		address := fmt.Sprintf("%s:25", mx.Host)
-		slog.Debug("attempting delivery", "mx", address, "domain", domain)
+		m.logger.Debug("attempting delivery", "mx", address, "domain", domain)
 
 		conn, err := net.DialTimeout("tcp", address, 30*time.Second)
 		if err != nil {
@@ -327,14 +329,14 @@ func (m *MTA) deliverToDomain(domain string, from string, to []string, msg []byt
 			config := &tls.Config{ServerName: mx.Host}
 			if err := c.StartTLS(config); err != nil {
 				if m.requireTLS {
-					slog.Error("starttls failed, skipping MX", "mx", mx.Host, "error", err)
+					m.logger.Error("starttls failed, skipping MX", "mx", mx.Host, "error", err)
 					lastErr = err
 					continue
 				}
-				slog.Error("starttls failed, delivering in plaintext", "mx", mx.Host, "error", err)
+				m.logger.Error("starttls failed, delivering in plaintext", "mx", mx.Host, "error", err)
 			}
 		} else if m.requireTLS {
-			slog.Error("mx does not support STARTTLS, skipping", "mx", mx.Host)
+			m.logger.Error("mx does not support STARTTLS, skipping", "mx", mx.Host)
 			lastErr = fmt.Errorf("MX %s does not support STARTTLS and TLS is required", mx.Host)
 			continue
 		}
@@ -347,7 +349,7 @@ func (m *MTA) deliverToDomain(domain string, from string, to []string, msg []byt
 		for _, rcpt := range to {
 			if err := c.Rcpt(rcpt); err != nil {
 				lastErr = err
-				slog.Warn("recipient rejected by server", "mx", mx.Host, "rcpt", rcpt, "error", err)
+				m.logger.Warn("recipient rejected by server", "mx", mx.Host, "rcpt", rcpt, "error", err)
 			}
 		}
 

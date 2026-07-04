@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -22,7 +21,7 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	addresses, err := s.DB.GetActiveSendingAddresses(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to fetch sending addresses", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -180,7 +179,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 
 	if err := r.ParseMultipartForm(50 * 1024 * 1024); err != nil {
-		slog.Error("failed to parse multipart form", "error", err)
+		s.logger.Error("failed to parse multipart form", "error", err)
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
@@ -203,7 +202,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 
 	sa, err := s.DB.GetSendingAddressByID(r.Context(), fromID, user.ID)
 	if err != nil {
-		slog.Warn("unauthorized sending attempt", "user_id", user.ID, "from_id", fromID, "error", err)
+		s.logger.Warn("unauthorized sending attempt", "user_id", user.ID, "from_id", fromID, "error", err)
 		http.Error(w, "Unauthorized from address", http.StatusForbidden)
 		return
 	}
@@ -234,7 +233,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	for _, fileHeader := range files {
 		vf, err := validateAttachment(fileHeader)
 		if err != nil {
-			slog.Warn("attachment rejected", "filename", fileHeader.Filename, "error", err)
+			s.logger.Warn("attachment rejected", "filename", fileHeader.Filename, "error", err)
 			http.Error(w, fmt.Sprintf("Attachment %q rejected: %s", fileHeader.Filename, err.Error()), http.StatusBadRequest)
 			return
 		}
@@ -248,7 +247,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	if s.Config.RateLimit.OutboundPerUserHour > 0 {
 		count, err := s.RateLimitDB.CountOutboundByUserHour(r.Context(), user.ID)
 		if err != nil {
-			slog.Error("failed to check outbound rate limit", "user_id", user.ID, "error", err)
+			s.logger.Error("failed to check outbound rate limit", "user_id", user.ID, "error", err)
 			http.Error(w, "Failed to check rate limit", http.StatusInternalServerError)
 			return
 		}
@@ -260,7 +259,7 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 
 	rawBytes, from, recipients, err := s.Sender.BuildMessage(outMsg)
 	if err != nil {
-		slog.Error("failed to build outbound message", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to build outbound message", "user_id", user.ID, "error", err)
 		http.Error(w, "Failed to build email", http.StatusInternalServerError)
 		return
 	}
@@ -275,19 +274,19 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		References:       references,
 	})
 	if err != nil {
-		slog.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to persist outbound email", "user_id", user.ID, "error", err)
 		http.Error(w, "Failed to save email", http.StatusInternalServerError)
 		return
 	}
 
 	if _, err := s.DB.InsertOutboundJob(r.Context(), &email.ID, from, recipients, rawBytes); err != nil {
-		slog.Error("failed to enqueue outbound job", "user_id", user.ID, "email_id", email.ID, "error", err)
+		s.logger.Error("failed to enqueue outbound job", "user_id", user.ID, "email_id", email.ID, "error", err)
 	}
 
 	if draftIDRaw := r.FormValue("draft_id"); draftIDRaw != "" {
 		if draftID, err := uuid.Parse(draftIDRaw); err == nil {
 			if err := s.DB.DeleteDraft(r.Context(), draftID, user.ID); err != nil {
-				slog.Error("failed to delete draft after send", "draft_id", draftID, "error", err)
+				s.logger.Error("failed to delete draft after send", "draft_id", draftID, "error", err)
 			}
 		}
 	}
@@ -295,14 +294,14 @@ func (s *Server) handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		mailboxes, err := s.DB.GetMailboxesByUserID(r.Context(), user.ID)
 		if err != nil {
-			slog.Error("failed to fetch mailboxes after send", "error", err)
+			s.logger.Error("failed to fetch mailboxes after send", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 		const pageSize = 50
 		emails, err := s.DB.SearchEmails(r.Context(), sa.MailboxID, user.ID, db.EmailFilter{View: "sent"}, pageSize, nil, nil)
 		if err != nil {
-			slog.Error("failed to fetch sent emails after send", "error", err)
+			s.logger.Error("failed to fetch sent emails after send", "error", err)
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -368,7 +367,7 @@ func (s *Server) handleDraftSave(w http.ResponseWriter, r *http.Request) {
 				References:       references,
 			}
 			if err := s.DB.UpdateDraft(r.Context(), draft); err != nil {
-				slog.Error("failed to update draft", "draft_id", draftID, "error", err)
+				s.logger.Error("failed to update draft", "draft_id", draftID, "error", err)
 				http.Error(w, "Internal error", http.StatusInternalServerError)
 				return
 			}
@@ -392,7 +391,7 @@ func (s *Server) handleDraftSave(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := s.DB.CreateDraft(r.Context(), draft)
 	if err != nil {
-		slog.Error("failed to create draft", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to create draft", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -414,7 +413,7 @@ func (s *Server) handleDraftDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.DeleteDraft(r.Context(), draftID, user.ID); err != nil {
-		slog.Error("failed to delete draft", "draft_id", draftID, "error", err)
+		s.logger.Error("failed to delete draft", "draft_id", draftID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

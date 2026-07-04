@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"image/png"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -62,7 +61,7 @@ func (s *Server) handleTOTPVerifyPost(w http.ResponseWriter, r *http.Request) {
 		}
 		// Consume the backup code — hard fail if removal fails to prevent reuse
 		if err := s.DB.RemoveTOTPBackupCode(r.Context(), user.ID, idx); err != nil {
-			slog.Error("failed to remove backup code", "user_id", user.ID, "error", err)
+			s.logger.Error("failed to remove backup code", "user_id", user.ID, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -83,7 +82,7 @@ func (s *Server) handleTOTPVerifyPost(w http.ResponseWriter, r *http.Request) {
 	token := generateToken()
 	expires := time.Now().Add(time.Duration(s.Config.Web.SessionExpirationSeconds) * time.Second)
 	if err := s.DB.CreateWebmailSession(r.Context(), user.ID, token, r.RemoteAddr, r.UserAgent(), expires); err != nil {
-		slog.Error("failed to create session after TOTP", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to create session after TOTP", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -108,7 +107,7 @@ func (s *Server) handleTOTPSetupGet(w http.ResponseWriter, r *http.Request) {
 
 	key, err := auth.GenerateTOTPKey(user.Username, "Mailaroo")
 	if err != nil {
-		slog.Error("failed to generate TOTP key", "error", err)
+		s.logger.Error("failed to generate TOTP key", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -118,7 +117,7 @@ func (s *Server) handleTOTPSetupGet(w http.ResponseWriter, r *http.Request) {
 
 	img, err := key.Image(200, 200)
 	if err != nil {
-		slog.Error("failed to generate TOTP QR image", "error", err)
+		s.logger.Error("failed to generate TOTP QR image", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -171,13 +170,13 @@ func (s *Server) handleTOTPEnablePost(w http.ResponseWriter, r *http.Request) {
 
 	plainCodes, hashedCodes, err := auth.GenerateBackupCodes()
 	if err != nil {
-		slog.Error("failed to generate backup codes", "error", err)
+		s.logger.Error("failed to generate backup codes", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DB.SaveTOTPSetup(r.Context(), user.ID, secret, hashedCodes); err != nil {
-		slog.Error("failed to save TOTP setup", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to save TOTP setup", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -197,7 +196,7 @@ func (s *Server) handleTOTPDisablePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.DisableTOTP(r.Context(), user.ID); err != nil {
-		slog.Error("failed to disable TOTP", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to disable TOTP", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -221,13 +220,13 @@ func (s *Server) handleTOTPRegenerateBackupCodes(w http.ResponseWriter, r *http.
 
 	plainCodes, hashedCodes, err := auth.GenerateBackupCodes()
 	if err != nil {
-		slog.Error("failed to generate backup codes", "error", err)
+		s.logger.Error("failed to generate backup codes", "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.DB.RegenerateTOTPBackupCodes(r.Context(), user.ID, hashedCodes); err != nil {
-		slog.Error("failed to regenerate backup codes", "user_id", user.ID, "error", err)
+		s.logger.Error("failed to regenerate backup codes", "user_id", user.ID, "error", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

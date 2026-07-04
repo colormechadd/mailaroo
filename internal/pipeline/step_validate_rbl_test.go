@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"testing"
 
@@ -13,7 +14,7 @@ func TestValidateRBL(t *testing.T) {
 	ctx := context.Background()
 	cfg := &config.Config{}
 	cfg.Spam.RBLServers = []string{"zen.spamhaus.org"}
-	p := &Pipeline{cfg: cfg}
+	p := &Pipeline{logger: slog.With("service", "pipeline"), cfg: cfg}
 
 	t.Run("skipped if no ip", func(t *testing.T) {
 		ictx := &IngestionContext{RemoteIP: nil}

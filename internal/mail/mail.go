@@ -28,6 +28,7 @@ type Repository interface {
 }
 
 type Service struct {
+	logger      *slog.Logger
 	repo        Repository
 	storage     storage.Storage
 	compression string // "zstd", "gzip", "none"
@@ -74,6 +75,7 @@ func newEmailPolicy() *bluemonday.Policy {
 
 func NewService(repo Repository, storage storage.Storage, compression string, signURL func(string) string) *Service {
 	return &Service{
+		logger:      slog.With("service", "mail"),
 		repo:        repo,
 		storage:     storage,
 		compression: compression,
@@ -226,7 +228,7 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 			break
 		}
 		if err != nil {
-			slog.Error("error reading message part", "email_id", emailID, "error", err)
+			s.logger.Error("error reading message part", "email_id", emailID, "error", err)
 			break
 		}
 
@@ -245,13 +247,13 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 
 			attData, err := io.ReadAll(pPart.Body)
 			if err != nil {
-				slog.Error("failed to read attachment body", "email_id", emailID, "filename", filename, "error", err)
+				s.logger.Error("failed to read attachment body", "email_id", emailID, "filename", filename, "error", err)
 				continue
 			}
 
 			cData, aSuffix, err := s.CompressData(attData, s.compression)
 			if err != nil {
-				slog.Error("failed to compress attachment", "filename", filename, "error", err)
+				s.logger.Error("failed to compress attachment", "filename", filename, "error", err)
 				continue
 			}
 
@@ -259,7 +261,7 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 			attKey := fmt.Sprintf("%s/%s/attachments/%s_%s%s", opts.MailboxID, emailID, attID, filename, aSuffix)
 
 			if err := s.storage.Save(ctx, attKey, bytes.NewReader(cData)); err != nil {
-				slog.Error("failed to save attachment to storage", "email_id", emailID, "filename", filename, "error", err)
+				s.logger.Error("failed to save attachment to storage", "email_id", emailID, "filename", filename, "error", err)
 				continue
 			}
 
@@ -273,7 +275,7 @@ func (s *Service) Persist(ctx context.Context, opts PersistOptions) (*models.Ema
 			}
 
 			if err := s.repo.CreateAttachment(ctx, att); err != nil {
-				slog.Error("failed to save attachment metadata", "email_id", emailID, "filename", filename, "error", err)
+				s.logger.Error("failed to save attachment metadata", "email_id", emailID, "filename", filename, "error", err)
 				continue
 			}
 		}

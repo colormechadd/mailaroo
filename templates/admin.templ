@@ -257,7 +257,7 @@ templ adminDomainTable(keys []models.DKIMKey, csrfToken string) {
 						>
 							DNS Records
 						</a>
-						<form class="inline" hx-post={ "/admin/domains/" + k.Domain + "/rotate" } hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+						<form class="inline" hx-post={ "/admin/domains/" + k.Domain + "/rotate" } hx-target="#main-content" hx-swap="innerHTML">
 							@csrfInput(csrfToken)
 							<button
 								type="submit"
