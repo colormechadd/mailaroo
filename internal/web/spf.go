@@ -41,8 +41,12 @@ func spfAuthorizes(ctx context.Context, r *net.Resolver, domain, spfRecord strin
 				if err != nil {
 					continue
 				}
-				if spfIPMatches("", hosts) {
-					return true
+				for _, h := range hosts {
+					for _, sip := range serverIPs {
+						if h == sip {
+							return true
+						}
+					}
 				}
 			}
 		case tok == "a":

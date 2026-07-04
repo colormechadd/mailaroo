@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/mail"
@@ -791,7 +792,7 @@ func checkSPF(ctx context.Context, domain string, smtpDomain string) templates.D
 	expected := fmt.Sprintf("v=spf1 mx include:%s ~all", smtpDomain)
 	resolver := net.DefaultResolver
 
-	serverIPs, _ := resolver.LookupHost(ctx, smtpDomain)
+	serverIPs := resolveServerIPs(ctx, smtpDomain)
 
 	txts, err := resolver.LookupTXT(ctx, domain)
 	if err != nil {
@@ -811,6 +812,39 @@ func checkSPF(ctx context.Context, domain string, smtpDomain string) templates.D
 		return templates.DNSCheckResult{Passed: true, Found: spfRecord}
 	}
 	return templates.DNSCheckResult{Found: spfRecord, Expected: expected}
+}
+
+// resolveServerIPs returns the server's public IPs using an external service,
+// falling back to DNS resolution of smtpDomain.
+func resolveServerIPs(ctx context.Context, smtpDomain string) []string {
+	ips := fetchExternalIP(ctx)
+	if len(ips) > 0 {
+		return ips
+	}
+	ips, _ = net.DefaultResolver.LookupHost(ctx, smtpDomain)
+	return ips
+}
+
+// fetchExternalIP queries a public service to determine the server's external IP.
+func fetchExternalIP(ctx context.Context) []string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://icanhazip.com", nil)
+	if err != nil {
+		return nil
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+	ip := strings.TrimSpace(string(body))
+	if net.ParseIP(ip) == nil {
+		return nil
+	}
+	return []string{ip}
 }
 
 func checkDKIM(ctx context.Context, domain string, selector string, expectedValue string) templates.DNSCheckResult {
