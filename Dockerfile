@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 go build -o mailaroo cmd/mailaroo/*.go
 RUN groupadd -r mailaroo && useradd -r -g mailaroo mailaroo
 
 # Stage 2: Runtime
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/base-debian12
 
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /etc/passwd /etc/passwd
