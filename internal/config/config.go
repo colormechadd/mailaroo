@@ -143,8 +143,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("STORAGE_TYPE", "local")
 	viper.SetDefault("COMPRESSION", "none")
 	viper.SetDefault("CLASSIFIER.TYPE", "")
-	viper.SetDefault("CLASSIFIER.MODEL", "gpt-4o-mini")
-	viper.SetDefault("CLASSIFIER.URL", "https://api.openai.com/v1")
+	viper.SetDefault("CLASSIFIER.MODEL", "")
+	viper.SetDefault("CLASSIFIER.URL", "")
 
 	viper.SetDefault("LOCAL_STORAGE.BASE_PATH", "./data/emails")
 
