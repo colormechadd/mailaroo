@@ -22,7 +22,8 @@ func ClassifyEmail(ctx context.Context, p *Pipeline, ictx *IngestionContext) (St
 
 	category, err := p.classifier.Classify(ctx, input)
 	if err != nil {
-		return StatusError, nil, err
+		p.logger.Warn("classifier error, skipping", "error", err)
+		return StatusSkipped, nil, nil
 	}
 
 	if err := p.db.SetEmailCategory(ctx, ictx.EmailID, category); err != nil {
