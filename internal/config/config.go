@@ -94,6 +94,23 @@ type Config struct {
 	GCSStorage   GCSStorageConfig   `mapstructure:"GCS_STORAGE"`
 }
 
+func (c *Config) Sanitized() Config {
+	sanitized := *c
+	if sanitized.DatabaseURL != "" {
+		sanitized.DatabaseURL = "***"
+	}
+	if sanitized.DKIM.EncryptionKey != "" {
+		sanitized.DKIM.EncryptionKey = "***"
+	}
+	if sanitized.Classifier.APIKey != "" {
+		sanitized.Classifier.APIKey = "***"
+	}
+	if sanitized.Web.CSRFAuthKey != "" {
+		sanitized.Web.CSRFAuthKey = "***"
+	}
+	return sanitized
+}
+
 func LoadConfig() (*Config, error) {
 	viper.SetDefault("LOG.LEVEL", "info")
 	viper.SetDefault("LOG.FORMAT", "text")

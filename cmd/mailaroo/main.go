@@ -93,6 +93,8 @@ func runServe() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	slog.Info("Configuration loaded", "config", cfg.Sanitized())
+
 	slog.Info("Starting MAILAROO Monolith...")
 
 	database, err := db.Connect(cfg.DatabaseURL)
