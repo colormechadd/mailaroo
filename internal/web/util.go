@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/mail"
 	"regexp"
 	"strings"
 
@@ -135,6 +136,14 @@ func buildContactsMap(contacts []models.Contact) map[string]*models.Contact {
 func parseAddresses(raw string) []string {
 	if raw == "" {
 		return nil
+	}
+	addrs, err := mail.ParseAddressList(raw)
+	if err == nil {
+		res := make([]string, len(addrs))
+		for i, a := range addrs {
+			res[i] = a.Address
+		}
+		return res
 	}
 	parts := strings.Split(raw, ",")
 	var res []string
