@@ -16,6 +16,7 @@ import (
 	"github.com/colormechadd/mailaroo/internal/pipeline"
 	"github.com/colormechadd/mailaroo/pkg/auth"
 	"github.com/colormechadd/mailaroo/pkg/models"
+	"github.com/emersion/go-sasl"
 	gosmtp "github.com/emersion/go-smtp"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -147,33 +148,42 @@ type Session struct {
 	userID        uuid.UUID
 }
 
-func (s *Session) AuthPlain(username, password string) error {
+func (s *Session) AuthMechanisms() []string {
 	if !s.backend.cfg.AuthEnabled {
-		return &gosmtp.SMTPError{
+		return nil
+	}
+	return []string{sasl.Plain}
+}
+
+func (s *Session) Auth(mech string) (sasl.Server, error) {
+	if !s.backend.cfg.AuthEnabled {
+		return nil, &gosmtp.SMTPError{
 			Code:    503,
 			Message: "AUTH not supported",
 		}
 	}
 
-	user, err := s.backend.authDB.GetUserByUsername(context.Background(), username)
-	if err != nil || !user.IsActive {
-		return &gosmtp.SMTPError{
-			Code:    535,
-			Message: "Authentication failed",
+	return sasl.NewPlainServer(func(identity, username, password string) error {
+		user, err := s.backend.authDB.GetUserByUsername(context.Background(), username)
+		if err != nil || !user.IsActive {
+			return &gosmtp.SMTPError{
+				Code:    535,
+				Message: "Authentication failed",
+			}
 		}
-	}
 
-	valid, err := auth.ComparePassword(password, user.PasswordHash)
-	if err != nil || !valid {
-		return &gosmtp.SMTPError{
-			Code:    535,
-			Message: "Authentication failed",
+		valid, err := auth.ComparePassword(password, user.PasswordHash)
+		if err != nil || !valid {
+			return &gosmtp.SMTPError{
+				Code:    535,
+				Message: "Authentication failed",
+			}
 		}
-	}
 
-	s.authenticated = true
-	s.userID = user.ID
-	return nil
+		s.authenticated = true
+		s.userID = user.ID
+		return nil
+	}), nil
 }
 
 func (s *Session) Mail(from string, opts *gosmtp.MailOptions) error {
@@ -374,7 +384,7 @@ func CreateServers(cfg config.SMTPConfig, rateCfg config.RateLimitConfig, mailDB
 		s.WriteTimeout = cfg.WriteTimeout
 		s.MaxMessageBytes = cfg.MaxMessageSize
 		s.MaxRecipients = cfg.MaxRecipients
-		s.AllowInsecureAuth = false
+		s.AllowInsecureAuth = cfg.AuthEnabled && cfg.TLSCertFile == ""
 		s.TLSConfig = tlsConfig
 
 		servers = append(servers, s)
