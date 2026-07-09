@@ -163,7 +163,7 @@ func runServe() {
 	}
 	mta := outbound.NewMTA(cfg.SMTP.Domain, cfg.SMTP.Relay, dkimSigner, cfg.SMTP.RequireTLS)
 
-	smtpServers, err := smtp.CreateServers(cfg.SMTP, cfg.RateLimit, database, database, ingestionPipeline)
+	smtpServers, err := smtp.CreateServers(cfg.SMTP, cfg.RateLimit, database, database, ingestionPipeline, database, database)
 	if err != nil {
 		slog.Error("failed to initialize SMTP servers", "error", err)
 		os.Exit(1)

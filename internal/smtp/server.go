@@ -14,6 +14,8 @@ import (
 	"github.com/colormechadd/mailaroo/internal/config"
 	"github.com/colormechadd/mailaroo/internal/db"
 	"github.com/colormechadd/mailaroo/internal/pipeline"
+	"github.com/colormechadd/mailaroo/pkg/auth"
+	"github.com/colormechadd/mailaroo/pkg/models"
 	gosmtp "github.com/emersion/go-smtp"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -26,6 +28,17 @@ type RecipientInfo struct {
 	MappingID uuid.UUID
 }
 
+// SMTPAuthDB provides user authentication and sending permission checks.
+type SMTPAuthDB interface {
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	IsAuthorizedSendingAddress(ctx context.Context, userID uuid.UUID, address string) (bool, error)
+}
+
+// SMTPOutboundDB provides outbound job creation.
+type SMTPOutboundDB interface {
+	InsertOutboundJob(ctx context.Context, emailID *uuid.UUID, fromAddress string, recipients []string, rawMessage []byte) (*models.OutboundJob, error)
+}
+
 // Backend implements smtp.Backend
 type Backend struct {
 	cfg         config.SMTPConfig
@@ -33,10 +46,13 @@ type Backend struct {
 	db          db.MailDB
 	rateLimitDB db.RateLimitDB
 	pipeline    *pipeline.Pipeline
+	authDB      SMTPAuthDB
+	outboundDB  SMTPOutboundDB
 	logger      *slog.Logger
 	mu          sync.Mutex
 	limiters    map[string]*rate.Limiter
 	violations  map[string]int
+	userLimit   map[uuid.UUID]*rate.Limiter
 }
 
 func (bkd *Backend) getLimiter(ip string) *rate.Limiter {
@@ -48,6 +64,18 @@ func (bkd *Backend) getLimiter(ip string) *rate.Limiter {
 	r := rate.Every(time.Minute / time.Duration(bkd.rateCfg.SMTPConnectionsPerMinute))
 	l := rate.NewLimiter(r, bkd.rateCfg.SMTPConnectionsPerMinute)
 	bkd.limiters[ip] = l
+	return l
+}
+
+func (bkd *Backend) getUserOutboundLimiter(userID uuid.UUID) *rate.Limiter {
+	bkd.mu.Lock()
+	defer bkd.mu.Unlock()
+	if l, ok := bkd.userLimit[userID]; ok {
+		return l
+	}
+	r := rate.Every(time.Hour / time.Duration(bkd.rateCfg.OutboundPerUserHour))
+	l := rate.NewLimiter(r, bkd.rateCfg.OutboundPerUserHour)
+	bkd.userLimit[userID] = l
 	return l
 }
 
@@ -113,22 +141,75 @@ type Session struct {
 	remoteIP net.IP
 	from     string
 	to       []RecipientInfo
+
+	// Auth state (for authenticated MTA relay)
+	authenticated bool
+	userID        uuid.UUID
 }
 
 func (s *Session) AuthPlain(username, password string) error {
-	return &gosmtp.SMTPError{
-		Code:    503,
-		Message: "AUTH not supported on this server",
+	if !s.backend.cfg.AuthEnabled {
+		return &gosmtp.SMTPError{
+			Code:    503,
+			Message: "AUTH not supported",
+		}
 	}
+
+	user, err := s.backend.authDB.GetUserByUsername(context.Background(), username)
+	if err != nil || !user.IsActive {
+		return &gosmtp.SMTPError{
+			Code:    535,
+			Message: "Authentication failed",
+		}
+	}
+
+	valid, err := auth.ComparePassword(password, user.PasswordHash)
+	if err != nil || !valid {
+		return &gosmtp.SMTPError{
+			Code:    535,
+			Message: "Authentication failed",
+		}
+	}
+
+	s.authenticated = true
+	s.userID = user.ID
+	return nil
 }
 
 func (s *Session) Mail(from string, opts *gosmtp.MailOptions) error {
-	s.backend.logger.Info("smtp mail from", "from", from, "remote_ip", s.remoteIP)
+	s.backend.logger.Info("smtp mail from", "from", from, "remote_ip", s.remoteIP, "authenticated", s.authenticated)
+
+	if s.authenticated {
+		ok, err := s.backend.authDB.IsAuthorizedSendingAddress(context.Background(), s.userID, from)
+		if err != nil {
+			s.backend.logger.Error("smtp: failed to check sending permission", "from", from, "user_id", s.userID, "error", err)
+			return &gosmtp.SMTPError{
+				Code:    550,
+				Message: "Temporary failure checking sending permission",
+			}
+		}
+		if !ok {
+			s.backend.logger.Warn("smtp: unauthorized from address", "from", from, "user_id", s.userID)
+			return &gosmtp.SMTPError{
+				Code:    550,
+				Message: "You do not have permission to send from this address",
+			}
+		}
+	}
+
 	s.from = from
 	return nil
 }
 
 func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
+	if s.authenticated {
+		s.backend.logger.Debug("smtp rcpt (authenticated)", "to", to, "from", s.from)
+		s.to = append(s.to, RecipientInfo{
+			Address: to,
+		})
+		return nil
+	}
+
 	mb, mappingID, err := s.backend.db.LookupMailboxByAddress(context.Background(), to)
 	if err != nil {
 		s.backend.logger.Warn("recipient rejected: mailbox not found", "to", to, "from", s.from, "error", err)
@@ -166,12 +247,60 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 }
 
 func (s *Session) Data(r io.Reader) error {
-	s.backend.logger.Info("smtp data received, processing message", "from", s.from, "rcpt_count", len(s.to))
 	data, err := io.ReadAll(r)
 	if err != nil {
 		s.backend.logger.Error("failed to read email data", "error", err)
 		return err
 	}
+
+	if s.authenticated {
+		return s.handleOutbound(data)
+	}
+
+	return s.handleInbound(data)
+}
+
+func (s *Session) handleOutbound(data []byte) error {
+	s.backend.logger.Info("smtp outbound relay", "from", s.from, "rcpt_count", len(s.to), "user_id", s.userID)
+
+	// Rate limit check
+	if s.backend.rateCfg.OutboundPerUserHour > 0 {
+		limiter := s.backend.getUserOutboundLimiter(s.userID)
+		if !limiter.Allow() {
+			s.backend.logger.Warn("outbound rate limit exceeded", "user_id", s.userID, "from", s.from)
+			return &gosmtp.SMTPError{
+				Code:    550,
+				Message: "Hourly sending limit reached, please try again later",
+			}
+		}
+	}
+
+	recipients := make([]string, 0, len(s.to))
+	for _, rcpt := range s.to {
+		recipients = append(recipients, rcpt.Address)
+	}
+
+	_, err := s.backend.outboundDB.InsertOutboundJob(
+		context.Background(),
+		nil,
+		s.from,
+		recipients,
+		data,
+	)
+	if err != nil {
+		s.backend.logger.Error("failed to enqueue outbound job", "from", s.from, "error", err)
+		return &gosmtp.SMTPError{
+			Code:    550,
+			Message: "Failed to queue message for delivery",
+		}
+	}
+
+	s.backend.logger.Info("outbound message queued for delivery", "from", s.from, "rcpt_count", len(s.to))
+	return nil
+}
+
+func (s *Session) handleInbound(data []byte) error {
+	s.backend.logger.Info("smtp data received, processing message", "from", s.from, "rcpt_count", len(s.to))
 
 	for _, rcpt := range s.to {
 		ictx := &pipeline.IngestionContext{
@@ -209,7 +338,7 @@ func (s *Session) Logout() error {
 }
 
 // CreateServers initializes and starts the SMTP servers on the configured ports
-func CreateServers(cfg config.SMTPConfig, rateCfg config.RateLimitConfig, mailDB db.MailDB, rateLimitDB db.RateLimitDB, p *pipeline.Pipeline) ([]*gosmtp.Server, error) {
+func CreateServers(cfg config.SMTPConfig, rateCfg config.RateLimitConfig, mailDB db.MailDB, rateLimitDB db.RateLimitDB, p *pipeline.Pipeline, authDB SMTPAuthDB, outboundDB SMTPOutboundDB) ([]*gosmtp.Server, error) {
 	var servers []*gosmtp.Server
 	be := &Backend{
 		cfg:         cfg,
@@ -217,9 +346,12 @@ func CreateServers(cfg config.SMTPConfig, rateCfg config.RateLimitConfig, mailDB
 		db:          mailDB,
 		rateLimitDB: rateLimitDB,
 		pipeline:    p,
+		authDB:      authDB,
+		outboundDB:  outboundDB,
 		logger:      slog.With("service", "smtp"),
 		limiters:    make(map[string]*rate.Limiter),
 		violations:  make(map[string]int),
+		userLimit:   make(map[uuid.UUID]*rate.Limiter),
 	}
 
 	var tlsConfig *tls.Config

@@ -20,6 +20,7 @@ type SMTPConfig struct {
 	MaxMessageSize int64         `mapstructure:"MAX_MESSAGE_SIZE"`
 	MaxRecipients  int           `mapstructure:"MAX_RECIPIENTS"`
 	RequireTLS     bool          `mapstructure:"REQUIRE_TLS"`
+	AuthEnabled    bool          `mapstructure:"AUTH_ENABLED"`
 }
 
 type LocalStorageConfig struct {
@@ -130,6 +131,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("SMTP.MAX_MESSAGE_SIZE", 1024*1024*50) // 50MB
 	viper.SetDefault("SMTP.MAX_RECIPIENTS", 50)
 	viper.SetDefault("SMTP.REQUIRE_TLS", false)
+	viper.SetDefault("SMTP.AUTH_ENABLED", false)
 
 	viper.SetDefault("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE", 10)
 	viper.SetDefault("RATE_LIMIT.SMTP_AUTO_BLOCK_THRESHOLD", 30)
@@ -179,6 +181,7 @@ func LoadConfig() (*Config, error) {
 	viper.BindEnv("SMTP.MAX_MESSAGE_SIZE")
 	viper.BindEnv("SMTP.MAX_RECIPIENTS")
 	viper.BindEnv("SMTP.REQUIRE_TLS")
+	viper.BindEnv("SMTP.AUTH_ENABLED")
 	viper.BindEnv("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE")
 	viper.BindEnv("RATE_LIMIT.SMTP_AUTO_BLOCK_THRESHOLD")
 	viper.BindEnv("RATE_LIMIT.SMTP_AUTO_BLOCK_DURATION")
@@ -228,6 +231,9 @@ func LoadConfig() (*Config, error) {
 	}
 	if relay := viper.GetString("SMTP_RELAY"); relay != "" {
 		cfg.SMTP.Relay = relay
+	}
+	if auth := viper.GetString("SMTP_AUTH_ENABLED"); auth != "" {
+		cfg.SMTP.AuthEnabled = auth == "true"
 	}
 
 	return &cfg, nil
@@ -313,6 +319,9 @@ func BindFlags(fs *pflag.FlagSet) {
 
 	fs.Bool("smtp-require-tls", false, "Require TLS for outbound SMTP delivery (fail if STARTTLS is unavailable or fails)")
 	viper.BindPFlag("SMTP.REQUIRE_TLS", fs.Lookup("smtp-require-tls"))
+
+	fs.Bool("smtp-auth-enabled", false, "Enable SMTP AUTH for client MTA relay (verify credentials + sending permission)")
+	viper.BindPFlag("SMTP.AUTH_ENABLED", fs.Lookup("smtp-auth-enabled"))
 
 	fs.Int("rate-limit-smtp-connections-per-minute", 10, "Max inbound SMTP connections per IP per minute")
 	viper.BindPFlag("RATE_LIMIT.SMTP_CONNECTIONS_PER_MINUTE", fs.Lookup("rate-limit-smtp-connections-per-minute"))
