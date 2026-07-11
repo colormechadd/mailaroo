@@ -9,6 +9,17 @@
   text-decoration: underline;
 }
 
+.email-body-html blockquote {
+  border-left: 2px solid #d1d5db;
+  margin: 0.5em 0;
+  padding: 0 0 0 0.75em;
+  color: #4b5563;
+}
+
+.email-body-html blockquote blockquote {
+  margin: 0.25em 0;
+}
+
 button {
   cursor: pointer;
 }
