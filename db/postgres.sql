@@ -86,6 +86,7 @@ CREATE TABLE public.contact (
     postal_code text DEFAULT ''::text NOT NULL,
     country text DEFAULT ''::text NOT NULL,
     notes text DEFAULT ''::text NOT NULL,
+    custom_css text DEFAULT ''::text NOT NULL,
     is_favorite boolean DEFAULT false NOT NULL,
     create_datetime timestamp with time zone DEFAULT now() NOT NULL,
     update_datetime timestamp with time zone DEFAULT now() NOT NULL
@@ -430,7 +431,8 @@ CREATE TABLE public."user" (
     totp_enabled boolean DEFAULT false NOT NULL,
     totp_secret text,
     totp_backup_codes text[] DEFAULT '{}'::text[] NOT NULL,
-    recovery_email text DEFAULT ''::text NOT NULL
+    recovery_email text DEFAULT ''::text NOT NULL,
+    custom_css text DEFAULT ''::text NOT NULL
 );
 
 

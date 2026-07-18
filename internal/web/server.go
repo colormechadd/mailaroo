@@ -312,6 +312,7 @@ func (s *Server) Routes() http.Handler {
 		r.Post("/user/totp/disable", s.handleTOTPDisablePost)
 		r.Post("/user/totp/backup-codes/regenerate", s.handleTOTPRegenerateBackupCodes)
 		r.Post("/user/sessions/{sessionID}/cancel", s.handleCancelSession)
+		r.Post("/user/custom-css", s.handleUpdateCustomCSS)
 
 		r.Post("/draft", s.handleDraftSave)
 		r.Delete("/draft/{draftID}", s.handleDraftDelete)

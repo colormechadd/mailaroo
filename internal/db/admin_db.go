@@ -95,7 +95,7 @@ func (db *DB) CreateAddressMapping(ctx context.Context, am *models.AddressMappin
 
 func (db *DB) ListUsers(ctx context.Context) ([]models.User, error) {
 	var users []models.User
-	err := db.SelectContext(ctx, &users, `SELECT id, username, password_hash, recovery_email, is_active, is_admin FROM "user" ORDER BY username ASC`)
+	err := db.SelectContext(ctx, &users, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, custom_css FROM "user" ORDER BY username ASC`)
 	return users, err
 }
 
@@ -175,7 +175,7 @@ func (db *DB) ListSendingAddressesByMailboxID(ctx context.Context, mailboxID uui
 
 func (db *DB) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE username = $1`, username)
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes, custom_css FROM "user" WHERE username = $1`, username)
 	return &user, err
 }
 

@@ -904,12 +904,25 @@ func contactFormFields(c models.Contact, isNew bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</textarea></div><input type=\"hidden\" name=\"is_favorite\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</textarea></div><!-- Custom CSS --><div><label class=\"block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2\">Custom CSS</label> <textarea name=\"custom_css\" rows=\"4\" placeholder=\"img { height: auto !important; }\" class=\"block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all resize-none font-mono text-sm\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var57 string
-		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.ResolveAttributeValue(func() string {
+		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(c.CustomCSS)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/contacts.templ`, Line: 416, Col: 16}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</textarea><p class=\"text-xs text-gray-400 mt-1\">CSS rules are auto-scoped to the email body in the reader.</p></div><input type=\"hidden\" name=\"is_favorite\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var58 string
+		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.ResolveAttributeValue(func() string {
 			if c.IsFavorite {
 				return "on"
 			} else {
@@ -917,13 +930,13 @@ func contactFormFields(c models.Contact, isNew bool) templ.Component {
 			}
 		}())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/contacts.templ`, Line: 408, Col: 119}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/contacts.templ`, Line: 420, Col: 119}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var57)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var58)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

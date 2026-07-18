@@ -196,3 +196,24 @@ func (s *Server) handleUserUpdateRecoveryEmail(w http.ResponseWriter, r *http.Re
 	s.logger.Info("recovery email updated", "user_id", user.ID, "email", email)
 	templates.ChangePasswordMessage("Recovery email updated successfully.", false).Render(r.Context(), w)
 }
+
+func (s *Server) handleUpdateCustomCSS(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+
+	css := r.FormValue("custom_css")
+
+	if err := validateCSS(css); err != nil {
+		templates.ChangePasswordMessage("Invalid CSS: "+err.Error(), true).Render(r.Context(), w)
+		return
+	}
+
+	if err := s.DB.UpdateUserCustomCSS(r.Context(), user.ID, css); err != nil {
+		s.logger.Error("failed to update custom CSS", "user_id", user.ID, "error", err)
+		templates.ChangePasswordMessage("Failed to update custom CSS.", true).Render(r.Context(), w)
+		return
+	}
+
+	user.CustomCSS = css
+	s.logger.Info("custom CSS updated", "user_id", user.ID)
+	templates.ChangePasswordMessage("Custom CSS saved.", false).Render(r.Context(), w)
+}

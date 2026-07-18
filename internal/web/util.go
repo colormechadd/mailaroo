@@ -133,6 +133,34 @@ func buildContactsMap(contacts []models.Contact) map[string]*models.Contact {
 	return m
 }
 
+func validateCSS(css string) error {
+	if css == "" {
+		return nil
+	}
+	depth := 0
+	for _, ch := range css {
+		switch ch {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth < 0 {
+				return fmt.Errorf("unexpected closing brace '}'")
+			}
+		}
+	}
+	if depth > 0 {
+		return fmt.Errorf("unclosed opening brace '{'")
+	}
+	if strings.Count(css, "'")%2 != 0 {
+		return fmt.Errorf("unbalanced single quotes")
+	}
+	if strings.Count(css, "\"")%2 != 0 {
+		return fmt.Errorf("unbalanced double quotes")
+	}
+	return nil
+}
+
 func parseAddresses(raw string) []string {
 	if raw == "" {
 		return nil

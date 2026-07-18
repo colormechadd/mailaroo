@@ -20,6 +20,7 @@ type Contact struct {
 	PostalCode     string    `db:"postal_code" json:"postal_code"`
 	Country        string    `db:"country" json:"country"`
 	Notes          string    `db:"notes" json:"notes"`
+	CustomCSS      string    `db:"custom_css" json:"custom_css"`
 	IsFavorite     bool      `db:"is_favorite" json:"is_favorite"`
 	CreateDatetime time.Time `db:"create_datetime" json:"create_datetime"`
 	UpdateDatetime time.Time `db:"update_datetime" json:"update_datetime"`

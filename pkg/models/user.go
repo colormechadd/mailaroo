@@ -17,6 +17,7 @@ type User struct {
 	TOTPEnabled     bool           `db:"totp_enabled" json:"totp_enabled"`
 	TOTPSecret      *string        `db:"totp_secret" json:"-"`
 	TOTPBackupCodes pq.StringArray `db:"totp_backup_codes" json:"-"`
+	CustomCSS       string         `db:"custom_css" json:"custom_css"`
 }
 
 type WebmailSession struct {

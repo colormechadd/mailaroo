@@ -11,7 +11,7 @@ func (db *DB) ListContacts(ctx context.Context, mailboxID uuid.UUID) ([]models.C
 	var contacts []models.Contact
 	err := db.SelectContext(ctx, &contacts, `
 		SELECT id, mailbox_id, first_name, last_name, email, phone,
-		       street, city, state, postal_code, country, notes, is_favorite,
+		       street, city, state, postal_code, country, notes, custom_css, is_favorite,
 		       create_datetime, update_datetime
 		FROM contact
 		WHERE mailbox_id = $1
@@ -24,7 +24,7 @@ func (db *DB) SearchContacts(ctx context.Context, mailboxID uuid.UUID, query str
 	var contacts []models.Contact
 	err := db.SelectContext(ctx, &contacts, `
 		SELECT id, mailbox_id, first_name, last_name, email, phone,
-		       street, city, state, postal_code, country, notes, is_favorite,
+		       street, city, state, postal_code, country, notes, custom_css, is_favorite,
 		       create_datetime, update_datetime
 		FROM contact
 		WHERE mailbox_id = $1
@@ -46,7 +46,7 @@ func (db *DB) SearchContactsForUser(ctx context.Context, userID uuid.UUID, query
 	var contacts []models.Contact
 	err := db.SelectContext(ctx, &contacts, `
 		SELECT c.id, c.mailbox_id, c.first_name, c.last_name, c.email, c.phone,
-		       c.street, c.city, c.state, c.postal_code, c.country, c.notes, c.is_favorite,
+		       c.street, c.city, c.state, c.postal_code, c.country, c.notes, c.custom_css, c.is_favorite,
 		       c.create_datetime, c.update_datetime
 		FROM contact c
 		JOIN mailbox_user mu ON mu.mailbox_id = c.mailbox_id
@@ -68,7 +68,7 @@ func (db *DB) GetContactByID(ctx context.Context, contactID, mailboxID uuid.UUID
 	var c models.Contact
 	err := db.GetContext(ctx, &c, `
 		SELECT id, mailbox_id, first_name, last_name, email, phone,
-		       street, city, state, postal_code, country, notes, is_favorite,
+		       street, city, state, postal_code, country, notes, custom_css, is_favorite,
 		       create_datetime, update_datetime
 		FROM contact
 		WHERE id = $1 AND mailbox_id = $2
@@ -79,13 +79,13 @@ func (db *DB) GetContactByID(ctx context.Context, contactID, mailboxID uuid.UUID
 func (db *DB) CreateContact(ctx context.Context, c models.Contact) (*models.Contact, error) {
 	var result models.Contact
 	err := db.GetContext(ctx, &result, `
-		INSERT INTO contact (mailbox_id, first_name, last_name, email, phone, street, city, state, postal_code, country, notes, is_favorite)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO contact (mailbox_id, first_name, last_name, email, phone, street, city, state, postal_code, country, notes, custom_css, is_favorite)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, mailbox_id, first_name, last_name, email, phone,
-		          street, city, state, postal_code, country, notes, is_favorite,
+		          street, city, state, postal_code, country, notes, custom_css, is_favorite,
 		          create_datetime, update_datetime
 	`, c.MailboxID, c.FirstName, c.LastName, c.Email, c.Phone,
-		c.Street, c.City, c.State, c.PostalCode, c.Country, c.Notes, c.IsFavorite)
+		c.Street, c.City, c.State, c.PostalCode, c.Country, c.Notes, c.CustomCSS, c.IsFavorite)
 	return &result, err
 }
 
@@ -94,11 +94,11 @@ func (db *DB) UpdateContact(ctx context.Context, c models.Contact) error {
 		UPDATE contact
 		SET first_name = $1, last_name = $2, email = $3, phone = $4,
 		    street = $5, city = $6, state = $7, postal_code = $8, country = $9,
-		    notes = $10, is_favorite = $11, update_datetime = NOW()
-		WHERE id = $12 AND mailbox_id = $13
+		    notes = $10, custom_css = $11, is_favorite = $12, update_datetime = NOW()
+		WHERE id = $13 AND mailbox_id = $14
 	`, c.FirstName, c.LastName, c.Email, c.Phone,
 		c.Street, c.City, c.State, c.PostalCode, c.Country,
-		c.Notes, c.IsFavorite, c.ID, c.MailboxID)
+		c.Notes, c.CustomCSS, c.IsFavorite, c.ID, c.MailboxID)
 	return err
 }
 
@@ -119,7 +119,7 @@ func (db *DB) GetContactByEmail(ctx context.Context, mailboxID uuid.UUID, email 
 	var c models.Contact
 	err := db.GetContext(ctx, &c, `
 		SELECT id, mailbox_id, first_name, last_name, email, phone,
-		       street, city, state, postal_code, country, notes, is_favorite,
+		       street, city, state, postal_code, country, notes, custom_css, is_favorite,
 		       create_datetime, update_datetime
 		FROM contact
 		WHERE mailbox_id = $1 AND lower(email) = lower($2)

@@ -184,11 +184,16 @@ func (s *Server) handleContactCreate(w http.ResponseWriter, r *http.Request) {
 		PostalCode: strings.TrimSpace(r.FormValue("postal_code")),
 		Country:    strings.TrimSpace(r.FormValue("country")),
 		Notes:      strings.TrimSpace(r.FormValue("notes")),
+		CustomCSS:  strings.TrimSpace(r.FormValue("custom_css")),
 		IsFavorite: r.FormValue("is_favorite") == "true" || r.FormValue("is_favorite") == "on",
 	}
 
 	if c.Email == "" {
 		http.Error(w, "Email is required", http.StatusBadRequest)
+		return
+	}
+	if err := validateCSS(c.CustomCSS); err != nil {
+		http.Error(w, "Invalid CSS: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -237,11 +242,16 @@ func (s *Server) handleContactUpdate(w http.ResponseWriter, r *http.Request) {
 		PostalCode: strings.TrimSpace(r.FormValue("postal_code")),
 		Country:    strings.TrimSpace(r.FormValue("country")),
 		Notes:      strings.TrimSpace(r.FormValue("notes")),
+		CustomCSS:  strings.TrimSpace(r.FormValue("custom_css")),
 		IsFavorite: r.FormValue("is_favorite") == "true" || r.FormValue("is_favorite") == "on",
 	}
 
 	if c.Email == "" {
 		http.Error(w, "Email is required", http.StatusBadRequest)
+		return
+	}
+	if err := validateCSS(c.CustomCSS); err != nil {
+		http.Error(w, "Invalid CSS: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 

@@ -76,7 +76,11 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 	senderBlocked := senderBlockRule != nil
 
 	counts := s.getCounts(r.Context(), email.MailboxID, user.ID)
-	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, senderBlocked), truncateTitle(email.Subject, 60))
+	contactCSS := ""
+	if senderContact != nil {
+		contactCSS = senderContact.CustomCSS
+	}
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, senderBlocked, user.CustomCSS, contactCSS), truncateTitle(email.Subject, 60))
 }
 
 func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +133,11 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 	}
 	senderContact, _ := s.DB.GetContactByEmail(r.Context(), email.MailboxID, starSenderAddr)
 	starBlockRule, _ := s.DB.IsBlockedByMailboxRules(r.Context(), email.MailboxID, starSenderAddr)
-	templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, starBlockRule != nil).Render(r.Context(), w)
+	starContactCSS := ""
+	if senderContact != nil {
+		starContactCSS = senderContact.CustomCSS
+	}
+	templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, starBlockRule != nil, user.CustomCSS, starContactCSS).Render(r.Context(), w)
 }
 
 func (s *Server) handleBulkEmailAction(w http.ResponseWriter, r *http.Request) {
@@ -417,7 +425,11 @@ func (s *Server) handleEmailBlockSender(w http.ResponseWriter, r *http.Request) 
 	senderContact, _ := s.DB.GetContactByEmail(r.Context(), email.MailboxID, addr)
 
 	w.Header().Set("HX-Trigger", `{"showToast":"Sender blocked"}`)
-	templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, true).Render(r.Context(), w)
+	blockContactCSS := ""
+	if senderContact != nil {
+		blockContactCSS = senderContact.CustomCSS
+	}
+	templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, true, user.CustomCSS, blockContactCSS).Render(r.Context(), w)
 }
 
 func (s *Server) handleManualBlockSender(w http.ResponseWriter, r *http.Request) {

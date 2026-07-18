@@ -103,6 +103,7 @@ type WebDB interface {
 	DisableTOTP(ctx context.Context, userID uuid.UUID) error
 	RemoveTOTPBackupCode(ctx context.Context, userID uuid.UUID, index int) error
 	RegenerateTOTPBackupCodes(ctx context.Context, userID uuid.UUID, hashedCodes []string) error
+	UpdateUserCustomCSS(ctx context.Context, userID uuid.UUID, css string) error
 }
 
 func (db *DB) CreateWebmailSession(ctx context.Context, userID uuid.UUID, token string, remoteIP, userAgent string, expires time.Time) error {
@@ -142,7 +143,7 @@ func (db *DB) ExpireWebmailSessionByID(ctx context.Context, sessionID uuid.UUID)
 
 func (db *DB) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
-	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes FROM "user" WHERE id = $1`, id)
+	err := db.GetContext(ctx, &user, `SELECT id, username, password_hash, recovery_email, is_active, is_admin, totp_enabled, totp_secret, totp_backup_codes, custom_css FROM "user" WHERE id = $1`, id)
 	return &user, err
 }
 
@@ -477,7 +478,7 @@ func (db *DB) UpdateSendingAddressDisplayName(ctx context.Context, id, userID uu
 func (db *DB) GetMailboxUsers(ctx context.Context, mailboxID uuid.UUID) ([]models.User, error) {
 	var users []models.User
 	err := db.SelectContext(ctx, &users, `
-		SELECT u.id, u.username, u.password_hash, u.recovery_email, u.is_active, u.is_admin
+		SELECT u.id, u.username, u.password_hash, u.recovery_email, u.is_active, u.is_admin, u.custom_css
 		FROM "user" u
 		JOIN mailbox_user mu ON mu.user_id = u.id
 		WHERE mu.mailbox_id = $1 AND mu.is_active = TRUE
@@ -586,6 +587,11 @@ func (db *DB) RegenerateTOTPBackupCodes(ctx context.Context, userID uuid.UUID, h
 	_, err := db.ExecContext(ctx, `
 		UPDATE "user" SET totp_backup_codes = $2 WHERE id = $1
 	`, userID, pq.StringArray(hashedCodes))
+	return err
+}
+
+func (db *DB) UpdateUserCustomCSS(ctx context.Context, userID uuid.UUID, css string) error {
+	_, err := db.ExecContext(ctx, `UPDATE "user" SET custom_css = $2 WHERE id = $1`, userID, css)
 	return err
 }
 
