@@ -161,14 +161,14 @@ func UserInfo(user *models.User, mailboxes []models.Mailbox, sendingAddresses []
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" placeholder=\"me@example.com\" class=\"appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all\"></div><div><label for=\"recovery_email_password\" class=\"block text-sm font-medium text-gray-700 mb-1\">Current Password</label> <input id=\"recovery_email_password\" name=\"current_password\" type=\"password\" required class=\"appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all\"></div><div><button type=\"submit\" class=\"px-4 py-2 text-sm font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer\">Save Recovery Email</button></div></form></div></section><!-- Custom CSS --><section><h2 class=\"text-lg font-semibold text-gray-900 mb-4 flex items-center\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5 mr-2 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4\"></path></svg> Custom CSS</h2><div class=\"bg-white shadow rounded-lg p-4\"><p class=\"text-sm text-gray-500 mb-4\">Add custom CSS to style the email reader. Changes apply immediately.</p><form hx-post=\"/user/custom-css\" hx-target=\"#custom-css-message\" hx-swap=\"innerHTML\" class=\"space-y-4\"><div id=\"custom-css-message\"></div><div><label for=\"custom_css\" class=\"block text-sm font-medium text-gray-700 mb-1\">CSS</label> <textarea id=\"custom_css\" name=\"custom_css\" rows=\"6\" class=\"appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all font-mono\" placeholder=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" placeholder=\"me@example.com\" class=\"appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all\"></div><div><label for=\"recovery_email_password\" class=\"block text-sm font-medium text-gray-700 mb-1\">Current Password</label> <input id=\"recovery_email_password\" name=\"current_password\" type=\"password\" required class=\"appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all\"></div><div><button type=\"submit\" class=\"px-4 py-2 text-sm font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer\">Save Recovery Email</button></div></form></div></section><!-- Custom CSS --><section><h2 class=\"text-lg font-semibold text-gray-900 mb-4 flex items-center\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5 mr-2 text-purple-500\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4\"></path></svg> Custom CSS</h2><div class=\"bg-white shadow rounded-lg p-4\"><p class=\"text-sm text-gray-500 mb-4\">Add custom CSS to style the email reader. Changes apply immediately.</p><form hx-post=\"/user/custom-css\" hx-target=\"#custom-css-message\" hx-swap=\"innerHTML\" class=\"space-y-4\"><div id=\"custom-css-message\"></div><div><label for=\"custom_css\" class=\"block text-sm font-medium text-gray-700 mb-1\">CSS</label> <textarea id=\"custom_css\" name=\"custom_css\" data-css-editor rows=\"3\" class=\"appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all font-mono\" placeholder=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(`img { height: auto !important; }`)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 236, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 237, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
@@ -181,7 +181,7 @@ func UserInfo(user *models.User, mailboxes []models.Mailbox, sendingAddresses []
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(user.CustomCSS)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 237, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 238, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -232,7 +232,7 @@ func ChangePasswordMessage(msg string, isError bool) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 267, Col: 8}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 268, Col: 8}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -250,7 +250,7 @@ func ChangePasswordMessage(msg string, isError bool) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 271, Col: 8}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 272, Col: 8}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -309,7 +309,7 @@ func SessionsList(sessions []models.WebmailSession) templ.Component {
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(*s.RemoteIP)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 288, Col: 23}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 289, Col: 23}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -328,7 +328,7 @@ func SessionsList(sessions []models.WebmailSession) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(s.CreateDatetime.Format("Jan 2, 2006 3:04 PM"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 293, Col: 92}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 294, Col: 92}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -346,7 +346,7 @@ func SessionsList(sessions []models.WebmailSession) templ.Component {
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(*s.UserAgent)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 296, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 297, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -364,7 +364,7 @@ func SessionsList(sessions []models.WebmailSession) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue("/user/sessions/" + s.ID.String() + "/cancel")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 300, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/user_info.templ`, Line: 301, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 				if templ_7745c5c3_Err != nil {

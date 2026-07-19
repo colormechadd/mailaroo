@@ -15,6 +15,9 @@ templ Layout(title string, csrfToken string) {
 			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 			<link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.8/dist/trix.css"/>
   			<script type="text/javascript" src="https://unpkg.com/trix@2.0.8/dist/trix.umd.min.js"></script>
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css"/>
+  			<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  			<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/css/css.min.js"></script>
 			<style>
 				[x-cloak] { display: none !important; }
 				.refresh-btn.htmx-request svg { animation: spin 0.8s linear infinite; }
@@ -92,6 +95,23 @@ templ Layout(title string, csrfToken string) {
                         document.querySelector('meta[name="csrf-token"]').content = newToken;
                     }
                 });
+				function initCSSEditors() {
+					document.querySelectorAll('textarea[data-css-editor]').forEach(function(ta) {
+						if (ta.nextElementSibling && ta.nextElementSibling.classList.contains('CodeMirror')) return;
+						const editor = CodeMirror.fromTextArea(ta, {
+							mode: 'text/css',
+							lineNumbers: true,
+							extraKeys: {'Ctrl-S': function() { ta.closest('form').querySelector('[type="submit"]')?.click(); }}
+						});
+						const cm = editor.getWrapperElement();
+						cm.style.height = '120px';
+						editor.setSize(null, '120px');
+						editor.on('change', function() { editor.save(); });
+					});
+				}
+				document.addEventListener('DOMContentLoaded', initCSSEditors);
+				document.addEventListener('htmx:afterSettle', initCSSEditors);
+
 				document.addEventListener('htmx:afterSettle', function() {
 					const path = window.location.pathname;
 					const params = new URLSearchParams(window.location.search);

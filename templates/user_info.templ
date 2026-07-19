@@ -231,7 +231,8 @@ templ UserInfo(user *models.User, mailboxes []models.Mailbox, sendingAddresses [
 								<textarea
 									id="custom_css"
 									name="custom_css"
-									rows="6"
+									data-css-editor
+									rows="3"
 									class="appearance-none block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all font-mono"
 									placeholder={ `img { height: auto !important; }` }
 								>{ user.CustomCSS }</textarea>

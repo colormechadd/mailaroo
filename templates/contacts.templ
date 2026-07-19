@@ -410,7 +410,8 @@ templ contactFormFields(c models.Contact, isNew bool) {
 		<label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Custom CSS</label>
 		<textarea
 			name="custom_css"
-			rows="4"
+			data-css-editor
+			rows="2"
 			placeholder="img { height: auto !important; }"
 			class="block w-full bg-gray-50 border-0 border-b-2 border-transparent focus:border-purple-500 focus:bg-white focus:ring-0 rounded-t-lg px-4 py-3 text-gray-900 transition-all resize-none font-mono text-sm"
 		>{ c.CustomCSS }</textarea>
