@@ -106,7 +106,7 @@ templ Layout(title string, csrfToken string) {
 						const cm = editor.getWrapperElement();
 						cm.style.height = '120px';
 						editor.setSize(null, '120px');
-						editor.on('change', function() { editor.save(); });
+						editor.on('change', function() { editor.save(); ta.dispatchEvent(new Event('input', { bubbles: true })); });
 					});
 				}
 				document.addEventListener('DOMContentLoaded', initCSSEditors);
