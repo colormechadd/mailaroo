@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, body string, isHTML bool, unsubInfo *models.UnsubscribeInfo, senderContact *models.Contact, senderBlocked bool, userCustomCSS string, contactCustomCSS string) {
+templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, htmlBody string, plainBody string, unsubInfo *models.UnsubscribeInfo, senderContact *models.Contact, senderBlocked bool, userCustomCSS string, contactCustomCSS string) {
 	{{
 		starTitle := "Star"
 		if email.IsStar {
@@ -19,8 +19,14 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 		if email.Status == models.StatusDeleted {
 			deleteTitle = "Restore"
 		}
+
+		isMixed := htmlBody != "" && plainBody != ""
+		defaultContentType := "html"
+		if htmlBody == "" {
+			defaultContentType = "text"
+		}
 	}}
-	<div class="flex-1 flex flex-col h-full bg-white overflow-hidden animate-in fade-in duration-300">
+	<div class="flex-1 flex flex-col h-full bg-white overflow-hidden animate-in fade-in duration-300" x-data={ fmt.Sprintf(`{ contentType: "%s" }`, defaultContentType) }>
 		@CustomEmailCSS(userCustomCSS, contactCustomCSS)
 		<header class="px-8 py-6 border-b border-purple-100 flex flex-col space-y-6">
 			<div class="flex items-center justify-between">
@@ -145,30 +151,67 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 							currentLabel = "none"
 						}
 					}}
-					<div x-data="{ open: false }" class="relative mt-2">
-						<button
-							@click="open = !open"
-							@click.outside="open = false"
-							class={ "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer hover:ring-2 hover:ring-purple-200 transition-all", categoryColor(currentLabel) }
-						>
-							{ categoryLabel(currentLabel) }
-							<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-						</button>
-						<div x-show="open" x-cloak class="absolute left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-							for _, cat := range allCategories {
-								if cat == email.Category {
-									<span class="block px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed">{ categoryLabel(cat) }</span>
-								} else {
-									<button
-										class="block w-full text-left px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
-										hx-post={ "/email/" + email.ID.String() + "/category" }
-										hx-vals={ fmt.Sprintf(`{"category":"%s"}`, cat) }
-										hx-target="#main-content"
-										@click="open = false"
-									>{ categoryLabel(cat) }</button>
+					<div class="flex items-center gap-2 mt-2">
+						<div x-data="{ open: false }" class="relative">
+							<button
+								@click="open = !open"
+								@click.outside="open = false"
+								class={ "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer hover:ring-2 hover:ring-purple-200 transition-all", categoryColor(currentLabel) }
+							>
+								{ categoryLabel(currentLabel) }
+								<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+							</button>
+							<div x-show="open" x-cloak class="absolute left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+								for _, cat := range allCategories {
+									if cat == email.Category {
+										<span class="block px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed">{ categoryLabel(cat) }</span>
+									} else {
+										<button
+											class="block w-full text-left px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors cursor-pointer"
+											hx-post={ "/email/" + email.ID.String() + "/category" }
+											hx-vals={ fmt.Sprintf(`{"category":"%s"}`, cat) }
+											hx-target="#main-content"
+											@click="open = false"
+										>{ categoryLabel(cat) }</button>
+									}
 								}
-							}
+							</div>
 						</div>
+						if isMixed {
+							<div x-data="{ open: false }" class="relative">
+								<button
+									@click="open = !open"
+									@click.outside="open = false"
+									class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer hover:ring-2 hover:ring-purple-200 transition-all bg-purple-50 text-purple-700"
+								>
+									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+									<span x-text="contentType === 'html' ? 'HTML' : 'Plain Text'"></span>
+									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+								</button>
+								<div x-show="open" x-cloak class="absolute left-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+									<button
+										class="block w-full text-left px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+										:class="contentType === 'html' ? 'text-purple-600 font-semibold bg-purple-50' : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'"
+										@click="contentType = 'html'; open = false"
+									>HTML</button>
+									<button
+										class="block w-full text-left px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+										:class="contentType === 'text' ? 'text-purple-600 font-semibold bg-purple-50' : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'"
+										@click="contentType = 'text'; open = false"
+									>Plain Text</button>
+								</div>
+							</div>
+						} else if htmlBody != "" {
+							<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-purple-50 text-purple-700">
+								<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+								HTML
+							</span>
+						} else {
+							<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-purple-50 text-purple-700">
+								<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+								Plain Text
+							</span>
+						}
 					</div>
 				</div>
 				<div class="text-right">
@@ -221,21 +264,35 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, bod
 			</div>
 		</header>
 		<div class="flex-1 overflow-y-auto p-10 max-w-4xl mx-auto w-full">
-			if isHTML {
-				<div class="email-body-html">
-					@templ.Raw(body)
+			if htmlBody != "" {
+				<div x-show="contentType === 'html'" class="email-body-html">
+					@templ.Raw(htmlBody)
 				</div>
-				<script>
-					document.querySelectorAll('.email-body-html a').forEach(function(a) {
-						const href = a.getAttribute('href') || '';
-						if (href.startsWith('#')) return;
-						a.setAttribute('target', '_blank');
-						a.setAttribute('rel', 'noopener noreferrer');
-					});
-				</script>
-			} else {
-				<div class="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed text-base">
-					{ body }
+				if isMixed {
+					<script>
+						document.addEventListener('alpine:init', function() {
+							document.querySelectorAll('.email-body-html a').forEach(function(a) {
+								const href = a.getAttribute('href') || '';
+								if (href.startsWith('#')) return;
+								a.setAttribute('target', '_blank');
+								a.setAttribute('rel', 'noopener noreferrer');
+							});
+						});
+					</script>
+				} else {
+					<script>
+						document.querySelectorAll('.email-body-html a').forEach(function(a) {
+							const href = a.getAttribute('href') || '';
+							if (href.startsWith('#')) return;
+							a.setAttribute('target', '_blank');
+							a.setAttribute('rel', 'noopener noreferrer');
+						});
+					</script>
+				}
+			}
+			if plainBody != "" {
+				<div x-show="contentType === 'text'" x-cloak class="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed text-base">
+					{ plainBody }
 				</div>
 			}
 		</div>

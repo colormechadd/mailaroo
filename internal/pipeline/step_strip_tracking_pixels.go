@@ -28,7 +28,7 @@ func StripTrackingPixels(ctx context.Context, p *Pipeline, ictx *IngestionContex
 	}
 	if cleaned == nil {
 		// No HTML part, or no tracking pixels found.
-		return StatusSkipped, map[string]any{"removed": 0}, nil
+		return StatusPass, map[string]any{"removed": 0}, nil
 	}
 
 	// Store the original raw email before overwriting RawMessage.

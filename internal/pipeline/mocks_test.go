@@ -3,6 +3,8 @@ package pipeline
 import (
 	"context"
 	"io"
+	"net"
+	"time"
 
 	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/pkg/models"
@@ -85,6 +87,16 @@ func (m *MockDB) SetEmailCategory(ctx context.Context, id uuid.UUID, category cl
 
 func (m *MockDB) SetEmailFields(ctx context.Context, id uuid.UUID, isRead, isStar bool, status models.EmailStatus) error {
 	args := m.Called(ctx, id, isRead, isStar, status)
+	return args.Error(0)
+}
+
+func (m *MockDB) IsIPBlocked(ctx context.Context, ip net.IP) (bool, error) {
+	args := m.Called(ctx, ip)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockDB) AddIPBlock(ctx context.Context, ip net.IP, reason string, blockedUntil *time.Time) error {
+	args := m.Called(ctx, ip, reason, blockedUntil)
 	return args.Error(0)
 }
 

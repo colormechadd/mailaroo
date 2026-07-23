@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"database/sql"
+	"net"
+	"time"
 
 	"github.com/colormechadd/mailaroo/internal/classifier"
 	"github.com/colormechadd/mailaroo/pkg/models"
@@ -25,6 +27,8 @@ type PipelineDB interface {
 	GetActiveFilterRulesForMailbox(ctx context.Context, mailboxID uuid.UUID) ([]*models.FilterRule, error)
 	SetEmailFields(ctx context.Context, id uuid.UUID, isRead, isStar bool, status models.EmailStatus) error
 	SetEmailCategory(ctx context.Context, id uuid.UUID, category classifier.Category) error
+	IsIPBlocked(ctx context.Context, ip net.IP) (bool, error)
+	AddIPBlock(ctx context.Context, ip net.IP, reason string, blockedUntil *time.Time) error
 }
 
 func (db *DB) CreateIngestion(ctx context.Context, ingestion *models.Ingestion) error {

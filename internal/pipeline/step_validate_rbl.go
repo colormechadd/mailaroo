@@ -78,8 +78,26 @@ func ValidateRBL(ctx context.Context, p *Pipeline, ictx *IngestionContext) (Step
 }
 
 func reverseIP(ip net.IP) string {
+	if ip == nil {
+		return ""
+	}
 	if ipv4 := ip.To4(); ipv4 != nil {
 		return fmt.Sprintf("%d.%d.%d.%d", ipv4[3], ipv4[2], ipv4[1], ipv4[0])
 	}
-	return ""
+	ipv6 := ip.To16()
+	if ipv6 == nil {
+		return ""
+	}
+	// Nibble format for RBL: expand to 32 hex digits, reverse, dot-separate
+	const hex = "0123456789abcdef"
+	b := make([]byte, 0, 63)
+	for i := 15; i >= 0; i-- {
+		if i < 15 {
+			b = append(b, '.')
+		}
+		b = append(b, hex[ipv6[i]&0x0f])
+		b = append(b, '.')
+		b = append(b, hex[ipv6[i]>>4])
+	}
+	return string(b)
 }

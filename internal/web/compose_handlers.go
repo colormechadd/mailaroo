@@ -104,8 +104,8 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 				}
 
 				dateStr := orig.ReceiveDatetime.Format("Jan 02, 2006, 15:04")
-				origBody, origIsHTML, _ := s.Mail.FetchBody(r.Context(), orig)
-				if origIsHTML {
+				origHTML, origPlain, _ := s.Mail.FetchBody(r.Context(), orig)
+				if origHTML != "" {
 					headerHTML := fmt.Sprintf(
 						"On %s, %s wrote:<br>",
 						html.EscapeString(dateStr),
@@ -113,13 +113,13 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 					)
 					bodyHTML = fmt.Sprintf(
 						`<br><br><blockquote style="border-left:2px solid #ccc;margin:0;padding:0 0 0 0.75em">%s%s</blockquote>`,
-						headerHTML, origBody,
+						headerHTML, origHTML,
 					)
 				} else {
 					body = fmt.Sprintf(
 						"\n\nOn %s, %s wrote:\n\n%s",
 						dateStr, orig.FromAddress,
-						strings.ReplaceAll(origBody, "\n", "\n> "),
+						strings.ReplaceAll(origPlain, "\n", "\n> "),
 					)
 				}
 			}
@@ -138,27 +138,27 @@ func (s *Server) handleCompose(w http.ResponseWriter, r *http.Request) {
 					subject = "Fwd: " + subject
 				}
 
-				dateStr := orig.ReceiveDatetime.Format("Jan 02, 2006, 15:04")
-				origBody, origIsHTML, _ := s.Mail.FetchBody(r.Context(), orig)
+			dateStr := orig.ReceiveDatetime.Format("Jan 02, 2006, 15:04")
+			origHTML, origPlain, _ := s.Mail.FetchBody(r.Context(), orig)
 
-				if origIsHTML {
-					headerHTML := fmt.Sprintf(
-						"<strong>---------- Forwarded message ----------</strong><br>From: %s<br>Date: %s<br>Subject: %s<br>To: %s<br><br>",
-						html.EscapeString(orig.FromAddress),
-						html.EscapeString(dateStr),
-						html.EscapeString(orig.Subject),
-						html.EscapeString(orig.ToAddress),
-					)
-					bodyHTML = fmt.Sprintf(
-						`<br><br><blockquote style="border-left:2px solid #ccc;margin:0;padding:0 0 0 0.75em">%s%s</blockquote>`,
-						headerHTML, origBody,
-					)
-				} else {
-					body = fmt.Sprintf(
-						"\n\n---------- Forwarded message ----------\nFrom: %s\nDate: %s\nSubject: %s\nTo: %s\n\n%s",
-						orig.FromAddress, dateStr, orig.Subject, orig.ToAddress, origBody,
-					)
-				}
+			if origHTML != "" {
+				headerHTML := fmt.Sprintf(
+					"<strong>---------- Forwarded message ----------</strong><br>From: %s<br>Date: %s<br>Subject: %s<br>To: %s<br><br>",
+					html.EscapeString(orig.FromAddress),
+					html.EscapeString(dateStr),
+					html.EscapeString(orig.Subject),
+					html.EscapeString(orig.ToAddress),
+				)
+				bodyHTML = fmt.Sprintf(
+					`<br><br><blockquote style="border-left:2px solid #ccc;margin:0;padding:0 0 0 0.75em">%s%s</blockquote>`,
+					headerHTML, origHTML,
+				)
+			} else {
+				body = fmt.Sprintf(
+					"\n\n---------- Forwarded message ----------\nFrom: %s\nDate: %s\nSubject: %s\nTo: %s\n\n%s",
+					orig.FromAddress, dateStr, orig.Subject, orig.ToAddress, origPlain,
+				)
+			}
 
 				for _, addr := range addresses {
 					if strings.EqualFold(addr.Address, orig.ToAddress) {

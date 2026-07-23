@@ -42,10 +42,10 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
-	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
+	htmlBody, plainBody, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
 		s.logger.Error("failed to fetch body", "key", email.StorageKey, "error", err)
-		content = "Failed to load content"
+		htmlBody = "Failed to load content"
 	}
 
 	unsubInfo, err := s.Mail.FetchUnsubscribeInfo(r.Context(), email)
@@ -80,7 +80,7 @@ func (s *Server) handleEmailView(w http.ResponseWriter, r *http.Request) {
 	if senderContact != nil {
 		contactCSS = senderContact.CustomCSS
 	}
-	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, senderBlocked, user.CustomCSS, contactCSS), truncateTitle(email.Subject, 60))
+	s.render(w, r, user, mailboxes, email.MailboxID, "all", counts, templates.EmailDetail(email, attachments, htmlBody, plainBody, unsubInfo, senderContact, senderBlocked, user.CustomCSS, contactCSS), truncateTitle(email.Subject, 60))
 }
 
 func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +117,7 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
 
-	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
+	htmlBody, plainBody, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
 		s.logger.Error("failed to fetch body", "key", email.StorageKey, "error", err)
 	}
@@ -137,7 +137,7 @@ func (s *Server) handleEmailStar(w http.ResponseWriter, r *http.Request) {
 	if senderContact != nil {
 		starContactCSS = senderContact.CustomCSS
 	}
-	templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, starBlockRule != nil, user.CustomCSS, starContactCSS).Render(r.Context(), w)
+	templates.EmailDetail(email, attachments, htmlBody, plainBody, unsubInfo, senderContact, starBlockRule != nil, user.CustomCSS, starContactCSS).Render(r.Context(), w)
 }
 
 func (s *Server) handleBulkEmailAction(w http.ResponseWriter, r *http.Request) {
@@ -416,10 +416,10 @@ func (s *Server) handleEmailBlockSender(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		s.logger.Error("failed to fetch attachments", "email_id", emailID, "error", err)
 	}
-	content, isHTML, err := s.Mail.FetchBody(r.Context(), email)
+	htmlBody, plainBody, err := s.Mail.FetchBody(r.Context(), email)
 	if err != nil {
 		s.logger.Error("failed to fetch body", "key", email.StorageKey, "error", err)
-		content = "Failed to load content"
+		htmlBody = "Failed to load content"
 	}
 	unsubInfo, _ := s.Mail.FetchUnsubscribeInfo(r.Context(), email)
 	senderContact, _ := s.DB.GetContactByEmail(r.Context(), email.MailboxID, addr)
@@ -429,7 +429,7 @@ func (s *Server) handleEmailBlockSender(w http.ResponseWriter, r *http.Request) 
 	if senderContact != nil {
 		blockContactCSS = senderContact.CustomCSS
 	}
-	templates.EmailDetail(email, attachments, content, isHTML, unsubInfo, senderContact, true, user.CustomCSS, blockContactCSS).Render(r.Context(), w)
+	templates.EmailDetail(email, attachments, htmlBody, plainBody, unsubInfo, senderContact, true, user.CustomCSS, blockContactCSS).Render(r.Context(), w)
 }
 
 func (s *Server) handleManualBlockSender(w http.ResponseWriter, r *http.Request) {

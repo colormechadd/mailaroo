@@ -328,16 +328,16 @@ func (s *Service) GetCcAddresses(ctx context.Context, email *models.Email) ([]st
 	return res, nil
 }
 
-func (s *Service) FetchBody(ctx context.Context, email *models.Email) (string, bool, error) {
+func (s *Service) FetchBody(ctx context.Context, email *models.Email) (htmlContent string, plainContent string, err error) {
 	rc, err := s.storage.Get(ctx, email.StorageKey)
 	if err != nil {
-		return "", false, err
+		return "", "", err
 	}
 	defer rc.Close()
 
 	bodyReader, err := s.DecompressReader(rc, email.StorageKey)
 	if err != nil {
-		return "", false, err
+		return "", "", err
 	}
 	if closer, ok := bodyReader.(io.Closer); ok {
 		defer closer.Close()
@@ -346,12 +346,10 @@ func (s *Service) FetchBody(ctx context.Context, email *models.Email) (string, b
 	mr, err := gomail.CreateReader(bodyReader)
 	if err != nil {
 		b, _ := io.ReadAll(bodyReader)
-		return string(b), false, nil
+		return "", string(b), nil
 	}
 	defer mr.Close()
 
-	var content string
-	var isHTML bool
 	for {
 		p, err := mr.NextPart()
 		if err != nil {
@@ -366,21 +364,23 @@ func (s *Service) FetchBody(ctx context.Context, email *models.Email) (string, b
 			ct, _, _ = h.ContentType()
 		}
 
-		if ct == "text/html" {
+		if ct == "text/html" && htmlContent == "" {
 			b, _ := io.ReadAll(p.Body)
-			content = s.policy.Sanitize(string(b))
+			htmlContent = s.policy.Sanitize(string(b))
 			if s.signURL != nil {
-				content = rewriteForPrivacy(content, s.signURL)
+				htmlContent = rewriteForPrivacy(htmlContent, s.signURL)
 			}
-			isHTML = true
+		}
+		if ct == "text/plain" && plainContent == "" {
+			b, _ := io.ReadAll(p.Body)
+			plainContent = string(b)
+		}
+
+		if htmlContent != "" && plainContent != "" {
 			break
 		}
-		if ct == "text/plain" && content == "" {
-			b, _ := io.ReadAll(p.Body)
-			content = string(b)
-		}
 	}
-	return content, isHTML, nil
+	return htmlContent, plainContent, nil
 }
 
 func (s *Service) FetchRaw(ctx context.Context, email *models.Email) ([]byte, error) {

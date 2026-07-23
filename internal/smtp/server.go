@@ -3,6 +3,7 @@ package smtp
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -51,21 +52,7 @@ type Backend struct {
 	outboundDB  SMTPOutboundDB
 	logger      *slog.Logger
 	mu          sync.Mutex
-	limiters    map[string]*rate.Limiter
-	violations  map[string]int
 	userLimit   map[uuid.UUID]*rate.Limiter
-}
-
-func (bkd *Backend) getLimiter(ip string) *rate.Limiter {
-	bkd.mu.Lock()
-	defer bkd.mu.Unlock()
-	if l, ok := bkd.limiters[ip]; ok {
-		return l
-	}
-	r := rate.Every(time.Minute / time.Duration(bkd.rateCfg.SMTPConnectionsPerMinute))
-	l := rate.NewLimiter(r, bkd.rateCfg.SMTPConnectionsPerMinute)
-	bkd.limiters[ip] = l
-	return l
 }
 
 func (bkd *Backend) getUserOutboundLimiter(userID uuid.UUID) *rate.Limiter {
@@ -86,62 +73,37 @@ func (bkd *Backend) NewSession(c *gosmtp.Conn) (gosmtp.Session, error) {
 
 	parsedIP := net.ParseIP(remoteIP)
 
-	// Check persistent IP block list (skip for loopback)
-	if parsedIP != nil && !parsedIP.IsLoopback() {
-		blocked, err := bkd.rateLimitDB.IsIPBlocked(context.Background(), parsedIP)
-		if err != nil {
-			bkd.logger.Error("failed to check ip block", "ip", remoteIP, "error", err)
-		} else if blocked {
-			bkd.logger.Warn("smtp connection rejected: ip blocked", "ip", remoteIP)
-			return nil, &gosmtp.SMTPError{
-				Code:    421,
-				Message: "Your IP address is temporarily blocked",
-			}
-		}
+	ingestionID := uuid.New()
+	ictx := &pipeline.IngestionContext{ID: ingestionID, RemoteIP: parsedIP}
+	if err := bkd.pipeline.NewIngestion(context.Background(), ictx); err != nil {
+		bkd.logger.Error("failed to create ingestion record", "error", err)
+		return nil, &gosmtp.SMTPError{Code: 421, Message: "Temporary failure"}
 	}
 
-	// In-memory per-IP rate limiting (skip for loopback)
-	if parsedIP != nil && !parsedIP.IsLoopback() && bkd.rateCfg.SMTPConnectionsPerMinute > 0 {
-		limiter := bkd.getLimiter(remoteIP)
-		if !limiter.Allow() {
-			bkd.mu.Lock()
-			bkd.violations[remoteIP]++
-			violations := bkd.violations[remoteIP]
-			bkd.mu.Unlock()
-
-			bkd.logger.Warn("smtp connection rate limited", "ip", remoteIP, "violations", violations)
-
-			if bkd.rateCfg.SMTPAutoBlockThreshold > 0 && violations >= bkd.rateCfg.SMTPAutoBlockThreshold {
-				until := time.Now().Add(bkd.rateCfg.SMTPAutoBlockDuration)
-				if err := bkd.rateLimitDB.AddIPBlock(context.Background(), parsedIP, "auto-blocked: rate limit exceeded", &until); err != nil {
-					bkd.logger.Error("failed to auto-block ip", "ip", remoteIP, "error", err)
-				} else {
-					bkd.logger.Warn("smtp ip auto-blocked", "ip", remoteIP, "until", until)
-					bkd.mu.Lock()
-					delete(bkd.violations, remoteIP)
-					bkd.mu.Unlock()
-				}
-			}
-
-			return nil, &gosmtp.SMTPError{
-				Code:    421,
-				Message: "Too many connections from your IP, please try again later",
-			}
+	// Pipeline connect hooks (rate limiting, IP blocklist, DNSBL, etc.)
+	if err := bkd.pipeline.RunStage(context.Background(), pipeline.StageConnect, ictx); err != nil {
+		bkd.logger.Warn("smtp connection rejected by pipeline hook", "ip", remoteIP, "error", err)
+		var re *pipeline.RejectError
+		if errors.As(err, &re) {
+			return nil, &gosmtp.SMTPError{Code: re.Code, Message: re.Message}
 		}
+		return nil, &gosmtp.SMTPError{Code: 421, Message: "Connection rejected"}
 	}
 
 	return &Session{
-		backend:  bkd,
-		remoteIP: parsedIP,
+		backend:      bkd,
+		remoteIP:     parsedIP,
+		ingestionID:  ingestionID,
 	}, nil
 }
 
 // Session implements smtp.Session
 type Session struct {
-	backend  *Backend
-	remoteIP net.IP
-	from     string
-	to       []RecipientInfo
+	backend     *Backend
+	remoteIP    net.IP
+	from        string
+	to          []RecipientInfo
+	ingestionID uuid.UUID
 
 	// Auth state (for authenticated MTA relay)
 	authenticated bool
@@ -207,6 +169,17 @@ func (s *Session) Mail(from string, opts *gosmtp.MailOptions) error {
 		}
 	}
 
+	// Pipeline mail from hooks (e.g., sender domain validation)
+	ictx := &pipeline.IngestionContext{ID: s.ingestionID, RemoteIP: s.remoteIP, FromAddress: from}
+	if err := s.backend.pipeline.RunStage(context.Background(), pipeline.StageMailFrom, ictx); err != nil {
+		s.backend.logger.Warn("smtp mail from rejected by pipeline hook", "from", from, "error", err)
+		var re *pipeline.RejectError
+		if errors.As(err, &re) {
+			return &gosmtp.SMTPError{Code: re.Code, Message: re.Message}
+		}
+		return &gosmtp.SMTPError{Code: 550, Message: "Sender rejected"}
+	}
+
 	s.from = from
 	return nil
 }
@@ -220,6 +193,7 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 		return nil
 	}
 
+	// Resolve the target mailbox
 	mb, mappingID, err := s.backend.db.LookupMailboxByAddress(context.Background(), to)
 	if err != nil {
 		s.backend.logger.Warn("recipient rejected: mailbox not found", "to", to, "from", s.from, "error", err)
@@ -230,7 +204,10 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 		}
 	}
 
-	// Greylisting: check (ip, from, to) triplet before accepting the recipient (skip for loopback)
+	mbID := mb.ID
+
+	// Greylisting: check (ip, from, to) triplet before running pipeline hooks
+	// (gate to avoid writing "accepted" ingestion status for greylisted recipients)
 	if s.remoteIP != nil && !s.remoteIP.IsLoopback() && s.backend.rateCfg.GreylistEnabled {
 		pass, err := s.backend.rateLimitDB.CheckAndUpdateGreylist(
 			context.Background(), s.remoteIP, s.from, to, s.backend.rateCfg.GreylistDelay,
@@ -247,10 +224,32 @@ func (s *Session) Rcpt(to string, opts *gosmtp.RcptOptions) error {
 		}
 	}
 
-	s.backend.logger.Info("recipient accepted", "to", to, "mailbox_id", mb.ID)
+	// Pipeline rcpt to hooks (e.g., block rules, additional validation)
+	ictx := &pipeline.IngestionContext{
+		ID:               s.ingestionID,
+		RemoteIP:         s.remoteIP,
+		FromAddress:      s.from,
+		ToAddresses:      []string{to},
+		TargetMailboxID:  mb.ID,
+		AddressMappingID: mappingID,
+	}
+	if err := s.backend.pipeline.RunStage(context.Background(), pipeline.StageRcptTo, ictx); err != nil {
+		s.backend.logger.Warn("smtp recipient rejected by pipeline hook", "to", to, "error", err)
+		var re *pipeline.RejectError
+		if errors.As(err, &re) {
+			return &gosmtp.SMTPError{Code: re.Code, Message: re.Message}
+		}
+		return &gosmtp.SMTPError{
+			Code:         550,
+			EnhancedCode: gosmtp.EnhancedCode{5, 1, 1},
+			Message:      "User unknown",
+		}
+	}
+
+	s.backend.logger.Info("recipient accepted", "to", to, "mailbox_id", mbID)
 	s.to = append(s.to, RecipientInfo{
 		Address:   to,
-		MailboxID: mb.ID,
+		MailboxID: mbID,
 		MappingID: mappingID,
 	})
 	return nil
@@ -327,6 +326,11 @@ func (s *Session) handleInbound(data []byte) error {
 		s.backend.logger.Info("queueing ingestion", "ingestion_id", ictx.ID, "from", s.from, "to", rcpt.Address)
 
 		go func(ctx *pipeline.IngestionContext) {
+			defer func() {
+				if r := recover(); r != nil {
+					s.backend.logger.Error("pipeline processing panicked", "ingestion_id", ctx.ID, "recover", r)
+				}
+			}()
 			if err := s.backend.pipeline.Process(context.Background(), ctx); err != nil {
 				s.backend.logger.Error("pipeline processing failed", "ingestion_id", ctx.ID, "error", err)
 			}
@@ -359,8 +363,6 @@ func CreateServers(cfg config.SMTPConfig, rateCfg config.RateLimitConfig, mailDB
 		authDB:      authDB,
 		outboundDB:  outboundDB,
 		logger:      slog.With("service", "smtp"),
-		limiters:    make(map[string]*rate.Limiter),
-		violations:  make(map[string]int),
 		userLimit:   make(map[uuid.UUID]*rate.Limiter),
 	}
 

@@ -25,13 +25,10 @@ func TestProcess_Success(t *testing.T) {
 	p := NewPipeline(cfg, mockDB, mockStorage, mockHub, mailSvc, nil, nil)
 
 	// Override steps for controlled test
-	p.steps = []struct {
-		name string
-		fn   Step
-	}{
-		{"deliver", Deliver},
-		{"finalize", Finalize},
-		{"notify", Notify},
+	p.steps = []StepRegistration{
+		{Name: "deliver", Stage: StageData, Fn: Deliver},
+		{Name: "finalize", Stage: StageData, Fn: Finalize},
+		{Name: "notify", Stage: StageData, Fn: Notify},
 	}
 
 	mailboxID := uuid.New()
@@ -95,13 +92,10 @@ func TestProcess_FailureLeavesQuarantined(t *testing.T) {
 		return StatusFail, nil, errors.New("validation failed")
 	}
 
-	p.steps = []struct {
-		name string
-		fn   Step
-	}{
-		{"deliver", Deliver},
-		{"fail", failStep},
-		{"finalize", Finalize},
+	p.steps = []StepRegistration{
+		{Name: "deliver", Stage: StageData, Fn: Deliver},
+		{Name: "fail", Stage: StageData, Fn: failStep},
+		{Name: "finalize", Stage: StageData, Fn: Finalize},
 	}
 
 	ictx := &IngestionContext{
