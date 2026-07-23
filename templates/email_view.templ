@@ -28,7 +28,7 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, htm
 	}}
 	<div class="flex-1 flex flex-col h-full bg-white overflow-hidden animate-in fade-in duration-300" x-data={ fmt.Sprintf(`{ contentType: "%s" }`, defaultContentType) }>
 		@CustomEmailCSS(userCustomCSS, contactCustomCSS)
-		<header class="px-8 py-6 border-b border-purple-100 flex flex-col space-y-6">
+		<header class="px-8 py-6 flex flex-col space-y-6">
 			<div class="flex items-center justify-between">
 				<div class="flex-1 min-w-0">
 					<h1 class="text-2xl font-bold text-gray-900 leading-tight break-words">{ email.Subject }</h1>
@@ -263,7 +263,8 @@ templ EmailDetail(email *models.Email, attachments []models.EmailAttachment, htm
 				</div>
 			</div>
 		</header>
-		<div class="flex-1 overflow-y-auto p-10 max-w-4xl mx-auto w-full">
+		<div class="border-t border-gray-200"></div>
+		<div class="flex-1 overflow-y-auto w-full">
 			if htmlBody != "" {
 				<div x-show="contentType === 'html'" class="email-body-html">
 					@templ.Raw(htmlBody)
